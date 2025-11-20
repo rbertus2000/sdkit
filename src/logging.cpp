@@ -86,6 +86,24 @@ void set_log_level(LogLevel level) {
     current_log_level = level;
 }
 
+void set_log_level(const std::string& level_str) {
+    LogLevel level = LogLevel::Info;  // default
+
+    if (level_str == "debug") {
+        level = LogLevel::Debug;
+    } else if (level_str == "info") {
+        level = LogLevel::Info;
+    } else if (level_str == "warning") {
+        level = LogLevel::Warning;
+    } else if (level_str == "error") {
+        level = LogLevel::Error;
+    } else {
+        fprintf(stderr, "Invalid log level: %s. Using 'info'.\n", level_str.c_str());
+    }
+
+    set_log_level(level);
+}
+
 // SD callback implementation for stable-diffusion.cpp integration
 void sd_log_cb(sd_log_level_t level, const char* log, void* data) {
     // Map sd_log_level_t to LogLevel

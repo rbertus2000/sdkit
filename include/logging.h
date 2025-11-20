@@ -12,6 +12,7 @@ enum class LogLevel { Debug, Info, Warning, Error };
 
 void log_message(LogLevel level, const char* format, ...);
 void set_log_level(LogLevel level);
+void set_log_level(const std::string& level_str);
 
 // Convenience macros for logging
 #define LOG_DEBUG(...) log_message(LogLevel::Debug, __VA_ARGS__)

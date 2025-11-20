@@ -18,6 +18,7 @@ void signal_handler(int signal) {
 
 struct CommandLineArgs {
     int port = 8188;
+    std::string log_level = "info";
     std::string ckpt_dir;
     std::string vae_dir;
     std::string hypernetwork_dir;
@@ -35,6 +36,8 @@ void print_usage(const char* program_name) {
     std::cerr << std::endl;
     std::cerr << "Options:" << std::endl;
     std::cerr << "  --port <port>                      Server port (default: 8188)" << std::endl;
+    std::cerr << "  --log-level <level>                Log level: debug, info, warning, error (default: info)"
+              << std::endl;
     std::cerr << "  --ckpt-dir <path>                  Checkpoint models directory" << std::endl;
     std::cerr << "  --vae-dir <path>                   VAE models directory" << std::endl;
     std::cerr << "  --hypernetwork-dir <path>          Hypernetwork models directory" << std::endl;
@@ -61,6 +64,8 @@ CommandLineArgs parse_args(int argc, char* argv[]) {
                 print_usage(argv[0]);
                 exit(1);
             }
+        } else if (arg == "--log-level" && i + 1 < argc) {
+            args.log_level = argv[++i];
         } else if (arg == "--ckpt-dir" && i + 1 < argc) {
             args.ckpt_dir = argv[++i];
         } else if (arg == "--vae-dir" && i + 1 < argc) {
@@ -101,6 +106,9 @@ int main(int argc, char* argv[]) {
 
     // Parse command line arguments
     CommandLineArgs args = parse_args(argc, argv);
+
+    // Set log level from command line argument
+    set_log_level(args.log_level);
 
     std::cout << "==================================" << std::endl;
     std::cout << "  Stable Diffusion API Server" << std::endl;
