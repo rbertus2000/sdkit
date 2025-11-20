@@ -120,10 +120,25 @@ void ModelManager::scanDirectoryInternal(const std::string& directory, ModelType
             std::string full_path = entry.path().string();
             size_t file_size = fs::file_size(entry.path());
 
-            ModelInfo info(filename, full_path, type, file_size);
+            // Determine the lookup name based on model type
+            std::string lookup_name;
+            if (type == ModelType::CHECKPOINT) {
+                // For stable-diffusion models: use relative path from directory with extension
+                fs::path relative = fs::relative(entry.path(), directory);
+                lookup_name = relative.string();
+            } else if (type == ModelType::CONTROLNET || type == ModelType::EMBEDDINGS || type == ModelType::LORA) {
+                // For controlnet, embeddings, lora: use filename without extension
+                lookup_name = entry.path().stem().string();
+            } else {
+                // For other model types: use filename as-is
+                lookup_name = filename;
+            }
+
+            ModelInfo info(lookup_name, full_path, type, file_size);
             found_models.push_back(info);
 
-            LOG_DEBUG("Found %s model: %s (%zu bytes)", getModelTypeString(type).c_str(), filename.c_str(), file_size);
+            LOG_DEBUG("Found %s model: %s (%zu bytes)", getModelTypeString(type).c_str(), lookup_name.c_str(),
+                      file_size);
         }
     } catch (const fs::filesystem_error& e) {
         LOG_ERROR("Error scanning directory %s: %s", directory.c_str(), e.what());

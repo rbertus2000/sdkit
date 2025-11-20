@@ -20,7 +20,8 @@ enum class ModelType {
 };
 
 struct ModelInfo {
-    std::string filename;   // Just the filename
+    std::string filename;   // Lookup name: relative path with extension (checkpoint), filename without extension
+                            // (controlnet/embedding/lora), or filename (others)
     std::string full_path;  // Absolute path to the model file
     ModelType type;
     size_t file_size;  // File size in bytes
