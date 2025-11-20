@@ -5,6 +5,7 @@
 #include <string>
 
 #include "crow.h"
+#include "image_generator.h"
 #include "model_manager.h"
 #include "options_manager.h"
 #include "task_state.h"
@@ -39,8 +40,9 @@ class Server {
     int port_;
     crow::SimpleApp app_;
     std::unique_ptr<OptionsManager> options_manager_;
-    std::unique_ptr<TaskStateManager> task_state_manager_;
+    std::shared_ptr<TaskStateManager> task_state_manager_;
     std::shared_ptr<ModelManager> model_manager_;
+    std::unique_ptr<ImageGenerator> image_generator_;
     bool should_stop_;
 };
 

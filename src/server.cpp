@@ -9,9 +9,10 @@
 Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     : port_(port), model_manager_(model_manager), should_stop_(false) {
     options_manager_ = std::make_unique<OptionsManager>();
-    task_state_manager_ = std::make_unique<TaskStateManager>();
+    task_state_manager_ = std::make_shared<TaskStateManager>();
 
-    // Load existing options
+    // Create ImageGenerator with shared task state manager
+    image_generator_ = std::make_unique<ImageGenerator>(task_state_manager_);  // Load existing options
     options_manager_->load();
 
     setupRoutes();
@@ -159,38 +160,133 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
     // Create task
     task_state_manager_->createTask(task_id);
 
-    // Simulate image generation with progress updates
-    // In a real implementation, this would call the actual stable-diffusion logic
-    int steps = json_body.has("steps") ? json_body["steps"].i() : 25;
-    int batch_size = json_body.has("batch_size") ? json_body["batch_size"].i() : 1;
+    try {
+        // Check if image generator is initialized
+        if (!image_generator_->isInitialized()) {
+            // Try to initialize with model from options
+            auto options_wvalue = options_manager_->getOptions();
+            std::string options_json = options_wvalue.dump();
+            auto options = crow::json::load(options_json);
 
-    for (int i = 0; i <= steps; i++) {
-        float progress = static_cast<float>(i) / steps;
-        std::string live_preview = "preview_image_base64_" + std::to_string(i);
-        task_state_manager_->updateTaskProgress(task_id, progress, live_preview);
+            if (!options) {
+                crow::json::wvalue error;
+                error["error"] = "Failed to load options";
+                task_state_manager_->completeTask(task_id, {}, error.dump());
+                return crow::response(500, error);
+            }
 
-        // Simulate work
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::string model_path;
+            if (options.has("sd_model_checkpoint")) {
+                std::string model_name = std::string(options["sd_model_checkpoint"].s());
+
+                if (!model_name.empty()) {
+                    // Get full path from model manager
+                    ModelInfo model_info = model_manager_->getModelByName(model_name, ModelType::CHECKPOINT);
+                    if (!model_info.full_path.empty()) {
+                        model_path = model_info.full_path;
+                    } else {
+                        LOG_ERROR("Model not found: %s", model_name.c_str());
+                        crow::json::wvalue error;
+                        error["error"] = std::string("Model not found: ") + model_name;
+                        task_state_manager_->completeTask(task_id, {}, error.dump());
+                        return crow::response(400, error);
+                    }
+                } else {
+                    crow::json::wvalue error;
+                    error["error"] = std::string("No model selected. Please configure sd_model_checkpoint in options.");
+                    task_state_manager_->completeTask(task_id, {}, error.dump());
+                    return crow::response(400, error);
+                }
+            } else {
+                crow::json::wvalue error;
+                error["error"] = std::string("No model selected. Please configure sd_model_checkpoint in options.");
+                task_state_manager_->completeTask(task_id, {}, error.dump());
+                return crow::response(400, error);
+            }
+
+            // Get other paths from options
+            std::string vae_path;
+            if (options.has("sd_vae")) {
+                std::string vae_name = std::string(options["sd_vae"].s());
+                if (!vae_name.empty()) {
+                    ModelInfo vae_info = model_manager_->getModelByName(vae_name, ModelType::VAE);
+                    if (!vae_info.full_path.empty()) {
+                        vae_path = vae_info.full_path;
+                    }
+                }
+            }
+
+            // Initialize the generator
+            int n_threads = -1;
+            bool offload_to_cpu = false;
+            bool vae_on_cpu = false;
+
+            if (!image_generator_->initialize(model_path, vae_path, "", "", "", n_threads, SD_TYPE_COUNT,
+                                              offload_to_cpu, vae_on_cpu)) {
+                crow::json::wvalue error;
+                error["error"] = std::string("Failed to initialize image generator");
+                task_state_manager_->completeTask(task_id, {}, error.dump());
+                return crow::response(500, error);
+            }
+
+            LOG_INFO("Image generator initialized with model: %s", model_path.c_str());
+        }
+
+        // Parse generation parameters
+        ImageGenerationParams params;
+        params.prompt = json_body.has("prompt") ? std::string(json_body["prompt"].s()) : "";
+        params.negative_prompt = json_body.has("negative_prompt") ? std::string(json_body["negative_prompt"].s()) : "";
+        params.width = json_body.has("width") ? json_body["width"].i() : 512;
+        params.height = json_body.has("height") ? json_body["height"].i() : 512;
+        params.steps = json_body.has("steps") ? json_body["steps"].i() : 20;
+        params.cfg_scale = json_body.has("cfg_scale") ? json_body["cfg_scale"].d() : 7.0f;
+        params.seed = json_body.has("seed") ? json_body["seed"].i() : -1;
+        params.batch_count = json_body.has("batch_size") ? json_body["batch_size"].i() : 1;
+
+        // img2img specific parameters
+        if (is_img2img) {
+            if (json_body.has("init_images") && json_body["init_images"].size() > 0) {
+                params.init_image_base64 = std::string(json_body["init_images"][0].s());
+            }
+            params.strength = json_body.has("denoising_strength") ? json_body["denoising_strength"].d() : 0.75f;
+        }
+
+        // Generate images (runs in same thread, blocks until complete)
+        std::vector<std::string> images;
+        if (is_img2img) {
+            images = image_generator_->generateImg2Img(params, task_id);
+        } else {
+            images = image_generator_->generateTxt2Img(params, task_id);
+        }
+
+        // Create info JSON string
+        crow::json::wvalue info_json;
+        info_json["prompt"] = params.prompt;
+        info_json["negative_prompt"] = params.negative_prompt;
+        info_json["steps"] = params.steps;
+        info_json["cfg_scale"] = params.cfg_scale;
+        info_json["seed"] = params.seed;
+        info_json["width"] = params.width;
+        info_json["height"] = params.height;
+        std::string info = info_json.dump();
+
+        // Complete task
+        task_state_manager_->completeTask(task_id, images, info);
+
+        // Return response
+        crow::json::wvalue response;
+        response["images"] = images;
+        response["info"] = info;
+
+        return crow::response(200, response);
+
+    } catch (const std::exception& e) {
+        LOG_ERROR("Image generation error: %s", e.what());
+        crow::json::wvalue error;
+        error["error"] = std::string("Generation failed: ") + e.what();
+        task_state_manager_->completeTask(task_id, {}, error.dump());
+        return crow::response(500, error);
     }
-
-    // Generate result images (stub data)
-    std::vector<std::string> images;
-    for (int i = 0; i < batch_size; i++) {
-        images.push_back("generated_image_base64_" + std::to_string(i));
-    }
-
-    // Create info JSON string
-    std::string info = "{\"infotexts\": \"Generated image info\"}";
-
-    // Complete task
-    task_state_manager_->completeTask(task_id, images, info);
-
-    // Return response
-    crow::json::wvalue response;
-    response["images"] = images;
-    response["info"] = info;
-
-    return crow::response(200, response);
 }
 
 crow::response Server::handleProgress(const crow::request& req) {
@@ -234,11 +330,11 @@ crow::response Server::handleProgress(const crow::request& req) {
 
 crow::response Server::handleInterrupt(const crow::request& req) {
     try {
-        // In a real implementation, this would signal the generation thread to stop
-        // For now, we'll just mark all active tasks as interrupted
-
-        // This is a stub - in reality you'd need to track the current task
-        // and signal it to stop
+        // Interrupt the image generator
+        if (image_generator_) {
+            image_generator_->interrupt();
+            LOG_INFO("Image generation interrupted");
+        }
 
         return crow::response(200, "OK");
     } catch (const std::exception& e) {
