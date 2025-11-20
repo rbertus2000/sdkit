@@ -160,4 +160,5 @@ build
 build_cpu
 build_cuda
 build_vk
+generated_images
 

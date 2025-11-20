@@ -143,7 +143,7 @@ def main():
         negative_prompt="",
         width=512,
         height=512,
-        steps=2,
+        steps=20,
         cfg_scale=7.0,
         seed=42,
         batch_size=1,
