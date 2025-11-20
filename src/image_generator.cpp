@@ -5,6 +5,9 @@
 #include <sstream>
 #include <stdexcept>
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_STATIC
+#include "../stable-diffusion.cpp/thirdparty/stb_image_write.h"
 #include "base64.hpp"
 #include "logging.h"
 
@@ -232,8 +235,28 @@ std::string ImageGenerator::imageToBase64(const sd_image_t& image) {
         return "";
     }
 
-    size_t data_size = image.width * image.height * image.channel;
-    return base64_encode(image.data, data_size);
+    // Use stb_image_write to convert to PNG format
+    std::vector<unsigned char> png_buffer;
+
+    // Lambda function to capture PNG data
+    auto write_callback = [](void* context, void* data, int size) {
+        auto* buffer = static_cast<std::vector<unsigned char>*>(context);
+        unsigned char* bytes = static_cast<unsigned char*>(data);
+        buffer->insert(buffer->end(), bytes, bytes + size);
+    };
+
+    // Write PNG to buffer (stride is width * channels for tightly packed data)
+    int stride = image.width * image.channel;
+    int result = stbi_write_png_to_func(write_callback, &png_buffer, image.width, image.height, image.channel,
+                                        image.data, stride);
+
+    if (result == 0 || png_buffer.empty()) {
+        LOG_ERROR("Failed to encode image as PNG");
+        return "";
+    }
+
+    // Encode PNG data as base64
+    return base64_encode(png_buffer.data(), png_buffer.size());
 }
 
 sd_image_t ImageGenerator::base64ToImage(const std::string& base64_data) {
