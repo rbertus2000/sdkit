@@ -189,7 +189,7 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
     response["images"] = images;
     response["info"] = info;
 
-    return crow::response(201, response);
+    return crow::response(200, response);
 }
 
 crow::response Server::handleProgress(const crow::request& req) {
