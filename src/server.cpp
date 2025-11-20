@@ -6,7 +6,8 @@
 
 #include "logging.h"
 
-Server::Server(int port) : port_(port), should_stop_(false) {
+Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
+    : port_(port), model_manager_(model_manager), should_stop_(false) {
     options_manager_ = std::make_unique<OptionsManager>();
     task_state_manager_ = std::make_unique<TaskStateManager>();
 
@@ -315,8 +316,10 @@ crow::response Server::handleControlNetDetect(const crow::request& req) {
 
 crow::response Server::handleRefreshCheckpoints() {
     try {
-        // Stub implementation: in real code, this would rescan model directories
-        std::cout << "Refreshing checkpoints..." << std::endl;
+        LOG_INFO("Refreshing checkpoints...");
+        if (model_manager_) {
+            model_manager_->refreshCheckpoints();
+        }
         return crow::response(200, "OK");
     } catch (const std::exception& e) {
         crow::json::wvalue error;
@@ -327,8 +330,10 @@ crow::response Server::handleRefreshCheckpoints() {
 
 crow::response Server::handleRefreshVaeAndTextEncoders() {
     try {
-        // Stub implementation: in real code, this would rescan VAE/encoder directories
-        std::cout << "Refreshing VAE and text encoders..." << std::endl;
+        LOG_INFO("Refreshing VAE and text encoders...");
+        if (model_manager_) {
+            model_manager_->refreshVaeAndTextEncoders();
+        }
         return crow::response(200, "OK");
     } catch (const std::exception& e) {
         crow::json::wvalue error;

@@ -5,12 +5,13 @@
 #include <string>
 
 #include "crow.h"
+#include "model_manager.h"
 #include "options_manager.h"
 #include "task_state.h"
 
 class Server {
    public:
-    Server(int port = 8188);
+    Server(int port, std::shared_ptr<ModelManager> model_manager);
     ~Server();
 
     void run();
@@ -39,6 +40,7 @@ class Server {
     crow::SimpleApp app_;
     std::unique_ptr<OptionsManager> options_manager_;
     std::unique_ptr<TaskStateManager> task_state_manager_;
+    std::shared_ptr<ModelManager> model_manager_;
     bool should_stop_;
 };
 

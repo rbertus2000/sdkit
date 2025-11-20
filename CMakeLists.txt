@@ -26,6 +26,8 @@ target_include_directories(sdkit PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_include_directories(sdkit PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 
+target_include_directories(sdkit PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stable-diffusion.cpp)
+
 # Suppress Unicode character warnings from Crow library headers on Windows
 if(MSVC)
     target_compile_options(sdkit PRIVATE /wd4566)
