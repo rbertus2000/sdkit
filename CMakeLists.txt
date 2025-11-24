@@ -15,6 +15,11 @@ set(BUILD_SHARED_LIBS ON CACHE BOOL "Build ggml as a shared library")
 set(SD_BUILD_SHARED_LIBS ON CACHE BOOL "Build stable-diffusion as a shared library")
 set(SD_BUILD_SHARED_GGML_LIB ON CACHE BOOL "Build ggml as a separate shared library")
 
+# Enable /bigobj for MSVC to handle large object files (needed for debug builds)
+if(MSVC)
+    add_compile_options(/bigobj)
+endif()
+
 # Include stable-diffusion.cpp
 add_subdirectory(stable-diffusion.cpp)
 
