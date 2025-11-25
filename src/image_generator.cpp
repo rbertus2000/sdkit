@@ -86,6 +86,8 @@ bool ImageGenerator::initialize(const std::string& model_path, const std::string
     sd_ctx_params_t params;
     sd_ctx_params_init(&params);
 
+    params.free_params_immediately = false;
+
     params.model_path = model_path.c_str();
     params.vae_path = vae_path.empty() ? nullptr : vae_path.c_str();
     params.taesd_path = taesd_path.empty() ? nullptr : taesd_path.c_str();
