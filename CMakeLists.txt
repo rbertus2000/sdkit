@@ -17,7 +17,7 @@ set(SD_BUILD_SHARED_GGML_LIB ON CACHE BOOL "Build ggml as a separate shared libr
 
 # Enable /bigobj for MSVC to handle large object files (needed for debug builds)
 if(MSVC)
-    add_compile_options(/bigobj)
+    add_compile_options($<$<CONFIG:Debug>:/bigobj>)
 endif()
 
 # Include stable-diffusion.cpp
