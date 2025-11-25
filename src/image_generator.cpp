@@ -69,6 +69,8 @@ bool ImageGenerator::initialize(const std::string& model_path, const std::string
                                 bool vae_on_cpu) {
     std::lock_guard<std::mutex> lock(mutex_);
 
+    sd_set_log_callback(sd_log_cb, nullptr);
+
     if (sd_ctx_) {
         LOG_WARNING("SD context already initialized, freeing old context");
         free_sd_ctx(sd_ctx_);
