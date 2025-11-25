@@ -21,8 +21,8 @@ struct ImageGenerationParams {
     int batch_size = 1;
 
     // Sampler settings
-    sample_method_t sampler = EULER_A;
-    scheduler_t scheduler = DEFAULT;
+    sample_method_t sampler = EULER_A_SAMPLE_METHOD;
+    scheduler_t scheduler = DISCRETE_SCHEDULER;
 
     // img2img specific
     std::string init_image_base64;

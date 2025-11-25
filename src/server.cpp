@@ -243,6 +243,16 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
         params.seed = json_body.has("seed") ? json_body["seed"].i() : -1;
         params.batch_count = json_body.has("batch_size") ? json_body["batch_size"].i() : 1;
 
+        // Sampler and scheduler parameters
+        if (json_body.has("sampler_name")) {
+            std::string sampler_str = json_body["sampler_name"].s();
+            params.sampler = str_to_sample_method(sampler_str.c_str());
+        }
+        if (json_body.has("scheduler")) {
+            std::string scheduler_str = json_body["scheduler"].s();
+            params.scheduler = str_to_scheduler(scheduler_str.c_str());
+        }
+
         // img2img specific parameters
         if (is_img2img) {
             if (json_body.has("init_images") && json_body["init_images"].size() > 0) {
