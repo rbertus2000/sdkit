@@ -3,8 +3,44 @@
 #include <chrono>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
 
 #include "logging.h"
+
+// Convert webui (Forge/Automatic1111 style) sampler/scheduler names
+// into stable-diffusion.cpp compatible names.
+static std::string convert_webui_sampler_name(const std::string& name) {
+    static const std::unordered_map<std::string, std::string> mapping = {
+        {"Euler", "euler"},
+        {"Euler a", "euler_a"},
+        {"Heun", "heun"},
+        {"DPM2", "dpm2"},
+        {"DPM++ 2S a", "dpm++2s_a"},
+        {"DPM++ 2M", "dpm++2m"},
+        {"DPM++ 2M v2", "dpm++2mv2"},
+        {"IPNDM", "ipndm"},
+        {"IPNDM_V", "ipndm_v"},
+        {"LCM", "lcm"},
+        {"DDIM", "ddim_trailing"},
+        {"TCD", "tcd"},
+    };
+
+    auto it = mapping.find(name);
+    if (it != mapping.end()) return it->second;
+    return name;
+}
+
+static std::string convert_webui_scheduler_name(const std::string& name) {
+    static const std::unordered_map<std::string, std::string> mapping = {
+        {"automatic", "discrete"},      {"uniform", "discrete"},           {"karras", "karras"},
+        {"exponential", "exponential"}, {"sgm_uniform", "sgm_uniform"},    {"simple", "simple"},
+        {"align_your_steps", "ays"},    {"align_your_steps_GITS", "gits"},
+    };
+
+    auto it = mapping.find(name);
+    if (it != mapping.end()) return it->second;
+    return name;
+}
 
 Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     : port_(port), model_manager_(model_manager), should_stop_(false) {
@@ -246,10 +282,14 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
         // Sampler and scheduler parameters
         if (json_body.has("sampler_name")) {
             std::string sampler_str = json_body["sampler_name"].s();
+            // Convert from webui-style sampler name to sd.cpp name
+            sampler_str = convert_webui_sampler_name(sampler_str);
             params.sampler = str_to_sample_method(sampler_str.c_str());
         }
         if (json_body.has("scheduler")) {
             std::string scheduler_str = json_body["scheduler"].s();
+            // Convert from webui-style scheduler name to sd.cpp name
+            scheduler_str = convert_webui_scheduler_name(scheduler_str);
             params.scheduler = str_to_scheduler(scheduler_str.c_str());
         }
 
