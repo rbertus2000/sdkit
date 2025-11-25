@@ -82,11 +82,12 @@ Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     static FilteredLogHandler filtered_handler;
     crow::logger::setHandler(&filtered_handler);
 
-    options_manager_ = std::make_unique<OptionsManager>();
+    options_manager_ = std::make_shared<OptionsManager>();
     task_state_manager_ = std::make_shared<TaskStateManager>();
 
     // Create ImageGenerator with shared task state manager
-    image_generator_ = std::make_unique<ImageGenerator>(task_state_manager_);  // Load existing options
+    image_generator_ =
+        std::make_unique<ImageGenerator>(task_state_manager_, options_manager_);  // Load existing options
     options_manager_->load();
 
     setupRoutes();

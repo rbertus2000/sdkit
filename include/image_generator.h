@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "options_manager.h"
 #include "stable-diffusion.h"
 #include "task_state.h"
 
@@ -34,7 +35,8 @@ struct ImageGenerationParams {
 
 class ImageGenerator {
    public:
-    ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager);
+    ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
+                   std::shared_ptr<OptionsManager> options_manager);
     ~ImageGenerator();
 
     // Initialize SD context
@@ -69,6 +71,7 @@ class ImageGenerator {
 
     sd_ctx_t* sd_ctx_;
     std::shared_ptr<TaskStateManager> task_state_manager_;
+    std::shared_ptr<OptionsManager> options_manager_;
     std::mutex mutex_;
     bool initialized_;
     bool interrupted_;

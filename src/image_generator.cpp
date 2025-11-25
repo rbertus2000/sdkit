@@ -68,8 +68,13 @@ static void preview_callback(int step, int frame_count, sd_image_t* frames, bool
     }
 }
 
-ImageGenerator::ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager)
-    : sd_ctx_(nullptr), task_state_manager_(task_state_manager), initialized_(false), interrupted_(false) {
+ImageGenerator::ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
+                               std::shared_ptr<OptionsManager> options_manager)
+    : sd_ctx_(nullptr),
+      task_state_manager_(task_state_manager),
+      options_manager_(options_manager),
+      initialized_(false),
+      interrupted_(false) {
     LOG_INFO("ImageGenerator created");
 }
 
@@ -175,7 +180,22 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     }
 
     sd_set_progress_callback(progress_callback, nullptr);
-    sd_set_preview_callback(preview_callback, PREVIEW_PROJ, 3, true, false);
+
+    // Set preview callback only if live previews are enabled
+    auto options = options_manager_->getOptions();
+    std::string options_json = options.dump();
+    auto parsed_options = crow::json::load(options_json);
+    bool live_previews_enabled = true;  // default to true
+    if (parsed_options && parsed_options.has("live_previews_enable")) {
+        live_previews_enabled = parsed_options["live_previews_enable"].b();
+    }
+
+    if (live_previews_enabled) {
+        sd_set_preview_callback(preview_callback, PREVIEW_PROJ, 3, true, false);
+    } else {
+        // Clear any existing preview callback
+        sd_set_preview_callback(nullptr, PREVIEW_PROJ, 3, true, false);
+    }
 
     LOG_INFO("Generating %s: prompt='%s', size=%dx%d, steps=%d, seed=%lld", is_img2img ? "img2img" : "txt2img",
              params.prompt.c_str(), params.width, params.height, params.steps, params.seed);

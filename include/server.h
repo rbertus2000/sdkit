@@ -39,7 +39,7 @@ class Server {
 
     int port_;
     crow::SimpleApp app_;
-    std::unique_ptr<OptionsManager> options_manager_;
+    std::shared_ptr<OptionsManager> options_manager_;
     std::shared_ptr<TaskStateManager> task_state_manager_;
     std::shared_ptr<ModelManager> model_manager_;
     std::unique_ptr<ImageGenerator> image_generator_;
