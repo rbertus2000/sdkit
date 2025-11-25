@@ -48,6 +48,9 @@ target_link_libraries(sdkit PRIVATE Threads::Threads)
 # Platform-specific libraries
 if(WIN32)
     target_link_libraries(sdkit PRIVATE ws2_32)
+    # Target Windows 7 and later (0x0601). This sets the _WIN32_WINNT macro
+    # for all targets processed by this CMakeLists.
+    add_compile_definitions(_WIN32_WINNT=0x0601)
 endif()
 
 # Copy the necessary DLLs to the runtime output directory
