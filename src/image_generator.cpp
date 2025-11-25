@@ -35,18 +35,36 @@ static void progress_callback(int step, int steps, float time, void* data) {
 // Preview callback for stable-diffusion.cpp
 static void preview_callback(int step, int frame_count, sd_image_t* frames, bool is_noisy) {
     std::lock_guard<std::mutex> lock(g_callback_mutex);
+    LOG_DEBUG("Preview callback: step %d, frame_count %d, is_noisy %d", step, frame_count, is_noisy);
     if (g_callback_data.task_state_manager && !g_callback_data.task_id.empty() && frames && frame_count > 0) {
-        // Encode first frame as base64 for live preview
-        size_t img_size = frames[0].width * frames[0].height * frames[0].channel;
-        std::string preview_base64 = base64_encode(frames[0].data, img_size);
+        // Encode first frame to JPEG, then base64 for live preview
+        std::vector<unsigned char> jpg_buffer;
+        auto write_callback = [](void* context, void* data, int size) {
+            auto* buffer = static_cast<std::vector<unsigned char>*>(context);
+            unsigned char* bytes = static_cast<unsigned char*>(data);
+            buffer->insert(buffer->end(), bytes, bytes + size);
+        };
 
-        float progress = g_callback_data.total_steps > 0
-                             ? static_cast<float>(step) / static_cast<float>(g_callback_data.total_steps)
-                             : 0.0f;
+        // Use lower quality for faster preview encoding
+        int quality = 75;
+        int result = stbi_write_jpg_to_func(write_callback, &jpg_buffer, frames[0].width, frames[0].height,
+                                            frames[0].channel, frames[0].data, quality);
 
-        g_callback_data.task_state_manager->updateTaskProgress(g_callback_data.task_id, progress, preview_base64);
+        LOG_DEBUG("JPEG encoding result: %d, jpg_buffer size: %zu", result, jpg_buffer.size());
+        if (result != 0 && !jpg_buffer.empty()) {
+            std::string preview_base64 = base64_encode(jpg_buffer.data(), jpg_buffer.size());
 
-        LOG_DEBUG("Preview: step %d, frames: %d, noisy: %d", step, frame_count, is_noisy);
+            float progress = g_callback_data.total_steps > 0
+                                 ? static_cast<float>(step) / static_cast<float>(g_callback_data.total_steps)
+                                 : 0.0f;
+
+            g_callback_data.task_state_manager->updateTaskProgress(g_callback_data.task_id, progress, preview_base64);
+
+            LOG_DEBUG("Preview: step %d, frames: %d, noisy: %d, jpg_size: %zu bytes", step, frame_count, is_noisy,
+                      jpg_buffer.size());
+        } else {
+            LOG_ERROR("Failed to encode preview image as JPEG");
+        }
     }
 }
 
@@ -157,7 +175,7 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     }
 
     sd_set_progress_callback(progress_callback, nullptr);
-    sd_set_preview_callback(preview_callback, PREVIEW_NONE, 1, true, false);
+    sd_set_preview_callback(preview_callback, PREVIEW_PROJ, 3, true, false);
 
     LOG_INFO("Generating %s: prompt='%s', size=%dx%d, steps=%d, seed=%lld", is_img2img ? "img2img" : "txt2img",
              params.prompt.c_str(), params.width, params.height, params.steps, params.seed);
