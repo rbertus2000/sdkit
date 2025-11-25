@@ -7,6 +7,40 @@
 
 #include "logging.h"
 
+// Custom log handler for Crow that filters out /ping requests
+class FilteredLogHandler : public crow::ILogHandler {
+   public:
+    void log(std::string message, crow::LogLevel level) override {
+        // Skip logging /ping requests to reduce noise
+        if (message.find("/ping") != std::string::npos || message.find("/internal/progress") != std::string::npos) {
+            return;
+        }
+
+        // Use our existing logging system for consistency
+        LogLevel our_level;
+        switch (level) {
+            case crow::LogLevel::Debug:
+                our_level = LogLevel::Debug;
+                break;
+            case crow::LogLevel::Info:
+                our_level = LogLevel::Info;
+                break;
+            case crow::LogLevel::Warning:
+                our_level = LogLevel::Warning;
+                break;
+            case crow::LogLevel::Error:
+            case crow::LogLevel::Critical:
+                our_level = LogLevel::Error;
+                break;
+            default:
+                our_level = LogLevel::Info;
+                break;
+        }
+
+        log_message(our_level, "[CROW] %s", message.c_str());
+    }
+};
+
 // Convert webui (Forge/Automatic1111 style) sampler/scheduler names
 // into stable-diffusion.cpp compatible names.
 static std::string convert_webui_sampler_name(const std::string& name) {
@@ -44,6 +78,10 @@ static std::string convert_webui_scheduler_name(const std::string& name) {
 
 Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     : port_(port), model_manager_(model_manager), should_stop_(false) {
+    // Set up custom logger to filter out unnecessary requests
+    static FilteredLogHandler filtered_handler;
+    crow::logger::setHandler(&filtered_handler);
+
     options_manager_ = std::make_unique<OptionsManager>();
     task_state_manager_ = std::make_shared<TaskStateManager>();
 
