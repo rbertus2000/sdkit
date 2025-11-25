@@ -268,7 +268,10 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
         info_json["seed"] = params.seed;
         info_json["width"] = params.width;
         info_json["height"] = params.height;
-        std::string info = info_json.dump();
+
+        crow::json::wvalue infotexts_json;
+        infotexts_json["infotexts"] = info_json.dump();
+        std::string info = infotexts_json.dump();
 
         // Complete task
         task_state_manager_->completeTask(task_id, images, info);
