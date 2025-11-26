@@ -532,7 +532,20 @@ bool ImageGenerator::ensureModelLoaded() {
 
     params.free_params_immediately = false;
 
-    params.model_path = model_path.c_str();
+    // Check if we have additional modules (VAE, CLIP, etc.)
+    bool has_additional_modules = !clip_l_path_str.empty() || !clip_g_path_str.empty() || !t5xxl_path_str.empty();
+
+    if (has_additional_modules) {
+        LOG_INFO("Using additional modules - loading diffusion model separately");
+        // When using additional modules, load diffusion model separately
+        params.model_path = nullptr;
+        params.diffusion_model_path = model_path.c_str();
+    } else {
+        // Standard loading from checkpoint
+        params.model_path = model_path.c_str();
+        params.diffusion_model_path = nullptr;
+    }
+
     params.vae_path = vae_path_str.empty() ? nullptr : vae_path_str.c_str();
     params.clip_l_path = clip_l_path_str.empty() ? nullptr : clip_l_path_str.c_str();
     params.clip_g_path = clip_g_path_str.empty() ? nullptr : clip_g_path_str.c_str();
