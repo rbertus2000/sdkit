@@ -8,6 +8,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_STATIC
 #include "../stable-diffusion.cpp/thirdparty/stb_image_write.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "../stable-diffusion.cpp/thirdparty/stb_image.h"
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "../stable-diffusion.cpp/thirdparty/stb_image_resize.h"
 #include "base64.hpp"
 #include "logging.h"
 
@@ -219,10 +223,12 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     gen_params.sample_params.guidance.txt_cfg = params.cfg_scale;
 
     // img2img specific
-    sd_image_t init_image = {0, 0, 0, nullptr};
     if (is_img2img && !params.init_image_base64.empty()) {
-        init_image = base64ToImage(params.init_image_base64);
+        sd_image_t init_image = createInitImage(params);
+        sd_image_t mask_image = createMaskImage(params);
+
         gen_params.init_image = init_image;
+        gen_params.mask_image = mask_image;
         gen_params.strength = params.strength;
     }
 
@@ -230,8 +236,11 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     sd_image_t* result = generate_image(sd_ctx_, &gen_params);
 
     // Free init image if used
-    if (init_image.data) {
-        freeImage(init_image);
+    if (gen_params.init_image.data) {
+        freeImage(gen_params.init_image);
+    }
+    if (gen_params.mask_image.data) {
+        freeImage(gen_params.mask_image);
     }
 
     if (!result) {
@@ -301,33 +310,149 @@ std::string ImageGenerator::imageToBase64(const sd_image_t& image) {
     return base64_encode(png_buffer.data(), png_buffer.size());
 }
 
-sd_image_t ImageGenerator::base64ToImage(const std::string& base64_data) {
+sd_image_t ImageGenerator::base64ToImage(const std::string& base64_data, int desired_channels) {
     sd_image_t image = {0, 0, 0, nullptr};
 
     if (base64_data.empty()) {
         return image;
     }
 
+    // Strip data URI prefix if present (e.g., "data:image/png;base64,")
+    std::string base64_clean = base64_data;
+    size_t comma_pos = base64_data.find(',');
+    if (comma_pos != std::string::npos) {
+        // Check if this looks like a data URI
+        if (base64_data.substr(0, 5) == "data:") {
+            base64_clean = base64_data.substr(comma_pos + 1);
+            LOG_DEBUG("Stripped data URI prefix, base64 length: %zu", base64_clean.length());
+        }
+    }
+
     // Decode base64
-    std::vector<uint8_t> decoded = base64_decode(base64_data);
+    std::vector<uint8_t> decoded = base64_decode(base64_clean);
     if (decoded.empty()) {
         LOG_ERROR("Failed to decode base64 image data");
         return image;
     }
 
-    // For simplicity, we'll need to parse the image format
-    // This is a simplified version - in production, you'd want to use stb_image or similar
-    // For now, assume raw RGB data and extract dimensions from somewhere
-    // This needs to be improved with proper image format handling
+    // Load image from memory using stb_image
+    int width, height, channels;
+    unsigned char* data = stbi_load_from_memory(decoded.data(), static_cast<int>(decoded.size()), &width, &height,
+                                                &channels, desired_channels);
+    if (!data) {
+        LOG_ERROR("Failed to load image from decoded data: %s", stbi_failure_reason());
+        return image;
+    }
 
-    LOG_WARNING("base64ToImage needs proper image format parsing implementation");
+    // Set image properties
+    image.width = width;
+    image.height = height;
+    image.channel = desired_channels;
+    image.data = data;
+
+    LOG_INFO("Loaded image: %dx%d, channels: %d", image.width, image.height, image.channel);
 
     return image;
 }
 
+bool ImageGenerator::resizeImage(sd_image_t& image, int target_width, int target_height) {
+    if (!image.data || image.width == 0 || image.height == 0) {
+        return false;
+    }
+
+    if (target_width <= 0 || target_height <= 0) {
+        return false;
+    }
+
+    // Clamp to multiples of 8 like in Python code
+    int final_width = target_width - (target_width % 8);
+    int final_height = target_height - (target_height % 8);
+
+    // If already the right size, do nothing
+    if (final_width == image.width && final_height == image.height) {
+        LOG_DEBUG("Image already correct size %dx%d", image.width, image.height);
+        return true;
+    }
+
+    LOG_INFO("Resizing image from %dx%d to %dx%d", image.width, image.height, final_width, final_height);
+
+    // Allocate memory for resized image
+    unsigned char* resized_data = static_cast<unsigned char*>(malloc(final_width * final_height * image.channel));
+    if (!resized_data) {
+        LOG_ERROR("Failed to allocate memory for resized image");
+        return false;
+    }
+
+    // Use stb_image_resize for high-quality resampling
+    int result = stbir_resize_uint8(image.data, image.width, image.height, 0, resized_data, final_width, final_height,
+                                    0, image.channel);
+
+    if (result == 0) {
+        LOG_ERROR("Failed to resize image");
+        free(resized_data);
+        return false;
+    }
+
+    // Free old data and update image struct
+    free(image.data);
+    image.data = resized_data;
+    image.width = final_width;
+    image.height = final_height;
+
+    return true;
+}
+
+sd_image_t ImageGenerator::createInitImage(const ImageGenerationParams& params) {
+    sd_image_t init_image = base64ToImage(params.init_image_base64);
+    if (!init_image.data) {
+        throw std::runtime_error("Failed to decode init image");
+    }
+
+    if (!resizeImage(init_image, params.width, params.height)) {
+        freeImage(init_image);
+        throw std::runtime_error("Failed to resize init image");
+    }
+
+    return init_image;
+}
+
+sd_image_t ImageGenerator::createMaskImage(const ImageGenerationParams& params) {
+    sd_image_t mask_image = {0, 0, 0, nullptr};
+
+    if (params.mask_base64.empty()) {
+        // Create a default mask for img2img (all white = no masking)
+        mask_image.width = params.width;
+        mask_image.height = params.height;
+        mask_image.channel = 1;
+        mask_image.data = static_cast<uint8_t*>(malloc(params.width * params.height * 1));
+        if (!mask_image.data) {
+            throw std::runtime_error("Failed to allocate mask image");
+        }
+        memset(mask_image.data, 255, params.width * params.height * 1);  // Fill with 255 (white)
+
+        return mask_image;
+    }
+
+    // Decode provided mask
+    mask_image = base64ToImage(params.mask_base64, 1);
+    if (!mask_image.data) {
+        throw std::runtime_error("Failed to decode mask image");
+    }
+
+    // Resize mask to match init image dimensions if needed
+    if (mask_image.width != params.width || mask_image.height != params.height) {
+        if (!resizeImage(mask_image, params.width, params.height)) {
+            freeImage(mask_image);
+            throw std::runtime_error("Failed to resize mask image");
+        }
+    }
+
+    return mask_image;
+}
+
 void ImageGenerator::freeImage(sd_image_t& image) {
     if (image.data) {
-        free(image.data);
+        free(image.data);  // Works for both stbi allocated and manually allocated memory
         image.data = nullptr;
     }
     image.width = 0;

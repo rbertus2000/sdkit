@@ -337,6 +337,9 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
             if (json_body.has("init_images") && json_body["init_images"].size() > 0) {
                 params.init_image_base64 = std::string(json_body["init_images"][0].s());
             }
+            if (json_body.has("mask")) {
+                params.mask_base64 = std::string(json_body["mask"].s());
+            }
             params.strength = json_body.has("denoising_strength") ? json_body["denoising_strength"].d() : 0.75f;
         }
 

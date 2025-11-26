@@ -27,6 +27,7 @@ struct ImageGenerationParams {
 
     // img2img specific
     std::string init_image_base64;
+    std::string mask_base64;
     float strength = 0.75f;
 
     // Other options
@@ -60,7 +61,16 @@ class ImageGenerator {
     std::string imageToBase64(const sd_image_t& image);
 
     // Convert base64 string to sd_image_t
-    sd_image_t base64ToImage(const std::string& base64_data);
+    sd_image_t base64ToImage(const std::string& base64_data, int desired_channels = 3);
+
+    // Resize sd_image_t to target dimensions (modifies in place)
+    bool resizeImage(sd_image_t& image, int target_width, int target_height);
+
+    // Create init image from base64 string
+    sd_image_t createInitImage(const ImageGenerationParams& params);
+
+    // Create mask image from base64 string or default
+    sd_image_t createMaskImage(const ImageGenerationParams& params);
 
     // Free sd_image_t data
     void freeImage(sd_image_t& image);
