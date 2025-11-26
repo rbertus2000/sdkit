@@ -1,8 +1,6 @@
 #include "image_generator.h"
 
-#include <algorithm>
 #include <cstring>
-#include <sstream>
 #include <stdexcept>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -13,7 +11,9 @@
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "../stable-diffusion.cpp/thirdparty/stb_image_resize.h"
 #include "base64.hpp"
+#include "crow.h"
 #include "logging.h"
+#include "model_detection.h"
 
 // Global callback data structure
 struct CallbackData {
@@ -410,7 +410,6 @@ void ImageGenerator::freeImage(sd_image_t& image) {
     image.height = 0;
     image.channel = 0;
 }
-
 bool ImageGenerator::needsModelReload(const std::string& model_path) const {
     // If not initialized, we need to load
     if (!initialized_ || !sd_ctx_) {
@@ -461,8 +460,48 @@ bool ImageGenerator::ensureModelLoaded() {
         return false;
     }
 
-    // Check if we need to reload the model
-    if (!needsModelReload(model_path)) {
+    // Collect additional modules for comparison
+    std::string vae_path_str;
+    std::string clip_l_path_str;
+    std::string clip_g_path_str;
+    std::string t5xxl_path_str;
+
+    if (options.has("forge_additional_modules")) {
+        auto modules = options["forge_additional_modules"];
+        if (modules.t() == crow::json::type::List) {
+            for (size_t i = 0; i < modules.size(); i++) {
+                std::string module_full_path = std::string(modules[i].s());
+                if (module_full_path.empty()) {
+                    continue;
+                }
+
+                LOG_DEBUG("Processing forge_additional_module: %s", module_full_path.c_str());
+
+                // Inspect the model to determine its type
+                std::string model_type = inspectModelType(module_full_path);
+
+                if (model_type == "vae") {
+                    vae_path_str = module_full_path;
+                } else if (model_type == "clip_l") {
+                    clip_l_path_str = module_full_path;
+                } else if (model_type == "clip_g") {
+                    clip_g_path_str = module_full_path;
+                } else if (model_type == "t5xxl") {
+                    t5xxl_path_str = module_full_path;
+                } else {
+                    LOG_WARNING("Unknown model type for: %s (detected as: %s)", module_full_path.c_str(),
+                                model_type.c_str());
+                }
+            }
+        }
+    }
+
+    // Check if we need to reload the model (check all paths)
+    bool needs_reload = !initialized_ || !sd_ctx_ || model_path != current_model_path_ ||
+                        vae_path_str != current_vae_path_ || clip_l_path_str != current_clip_l_path_ ||
+                        clip_g_path_str != current_clip_g_path_ || t5xxl_path_str != current_t5xxl_path_;
+
+    if (!needs_reload) {
         LOG_DEBUG("Model already loaded: %s", model_path.c_str());
         return true;
     }
@@ -494,11 +533,28 @@ bool ImageGenerator::ensureModelLoaded() {
     params.free_params_immediately = false;
 
     params.model_path = model_path.c_str();
-    params.vae_path = nullptr;
+    params.vae_path = vae_path_str.empty() ? nullptr : vae_path_str.c_str();
+    params.clip_l_path = clip_l_path_str.empty() ? nullptr : clip_l_path_str.c_str();
+    params.clip_g_path = clip_g_path_str.empty() ? nullptr : clip_g_path_str.c_str();
+    params.t5xxl_path = t5xxl_path_str.empty() ? nullptr : t5xxl_path_str.c_str();
     params.taesd_path = nullptr;
     params.lora_model_dir = nullptr;
     params.embedding_dir = nullptr;
     params.vae_decode_only = false;  // We need encoding for img2img
+
+    // Log what we're loading
+    if (!vae_path_str.empty()) {
+        LOG_INFO("Loading VAE model: %s", vae_path_str.c_str());
+    }
+    if (!clip_l_path_str.empty()) {
+        LOG_INFO("Loading CLIP-L model: %s", clip_l_path_str.c_str());
+    }
+    if (!clip_g_path_str.empty()) {
+        LOG_INFO("Loading CLIP-G model: %s", clip_g_path_str.c_str());
+    }
+    if (!t5xxl_path_str.empty()) {
+        LOG_INFO("Loading T5XXL model: %s", t5xxl_path_str.c_str());
+    }
 
     // Set RNG type
     params.rng_type = CUDA_RNG;
@@ -512,7 +568,10 @@ bool ImageGenerator::ensureModelLoaded() {
 
     // Track currently loaded model paths
     current_model_path_ = model_path;
-    current_vae_path_ = "";
+    current_vae_path_ = vae_path_str;
+    current_clip_l_path_ = clip_l_path_str;
+    current_clip_g_path_ = clip_g_path_str;
+    current_t5xxl_path_ = t5xxl_path_str;
     current_taesd_path_ = "";
     current_lora_model_dir_ = "";
     current_embeddings_dir_ = "";

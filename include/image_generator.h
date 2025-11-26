@@ -96,6 +96,9 @@ class ImageGenerator {
     // Track currently loaded model paths for change detection
     std::string current_model_path_;
     std::string current_vae_path_;
+    std::string current_clip_l_path_;
+    std::string current_clip_g_path_;
+    std::string current_t5xxl_path_;
     std::string current_taesd_path_;
     std::string current_lora_model_dir_;
     std::string current_embeddings_dir_;

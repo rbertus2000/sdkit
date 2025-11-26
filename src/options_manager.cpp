@@ -18,6 +18,7 @@ bool OptionsManager::load() {
         options_data_["CLIP_stop_at_last_layers"] = 1;
         options_data_["sdxl_clip_l_skip"] = false;
         options_data_["samples_format"] = "png";
+        options_data_["forge_additional_modules"] = std::vector<std::string>{};
         return true;
     }
 
@@ -32,6 +33,7 @@ bool OptionsManager::load() {
         options_data_["CLIP_stop_at_last_layers"] = 1;
         options_data_["sdxl_clip_l_skip"] = false;
         options_data_["samples_format"] = "png";
+        options_data_["forge_additional_modules"] = std::vector<std::string>{};
         return true;
     }
 
