@@ -73,10 +73,12 @@ static void preview_callback(int step, int frame_count, sd_image_t* frames, bool
 }
 
 ImageGenerator::ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
-                               std::shared_ptr<OptionsManager> options_manager)
+                               std::shared_ptr<OptionsManager> options_manager,
+                               std::shared_ptr<ModelManager> model_manager)
     : sd_ctx_(nullptr),
       task_state_manager_(task_state_manager),
       options_manager_(options_manager),
+      model_manager_(model_manager),
       initialized_(false),
       interrupted_(false) {
     LOG_INFO("ImageGenerator created");
@@ -90,61 +92,9 @@ ImageGenerator::~ImageGenerator() {
     }
 }
 
-bool ImageGenerator::initialize(const std::string& model_path, const std::string& vae_path,
-                                const std::string& taesd_path, const std::string& lora_model_dir,
-                                const std::string& embeddings_dir, int n_threads, sd_type_t wtype, bool offload_to_cpu,
-                                bool vae_on_cpu) {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    sd_set_log_callback(sd_log_cb, nullptr);
-
-    if (sd_ctx_) {
-        LOG_WARNING("SD context already initialized, freeing old context");
-        free_sd_ctx(sd_ctx_);
-        sd_ctx_ = nullptr;
-    }
-
-    if (model_path.empty()) {
-        LOG_ERROR("Model path is empty");
-        return false;
-    }
-
-    LOG_INFO("Initializing SD context with model: %s", model_path.c_str());
-
-    // Initialize context parameters
-    sd_ctx_params_t params;
-    sd_ctx_params_init(&params);
-
-    params.free_params_immediately = false;
-
-    params.model_path = model_path.c_str();
-    params.vae_path = vae_path.empty() ? nullptr : vae_path.c_str();
-    params.taesd_path = taesd_path.empty() ? nullptr : taesd_path.c_str();
-    params.lora_model_dir = lora_model_dir.empty() ? nullptr : lora_model_dir.c_str();
-    params.embedding_dir = embeddings_dir.empty() ? nullptr : embeddings_dir.c_str();
-    params.n_threads = n_threads;
-    params.wtype = wtype;
-    params.offload_params_to_cpu = offload_to_cpu;
-    params.keep_vae_on_cpu = vae_on_cpu;
-    params.vae_decode_only = false;  // We need encoding for img2img
-
-    // Set RNG type
-    params.rng_type = CUDA_RNG;
-
-    // Create SD context
-    sd_ctx_ = new_sd_ctx(&params);
-    if (!sd_ctx_) {
-        LOG_ERROR("Failed to create SD context");
-        return false;
-    }
-
-    initialized_ = true;
-    LOG_INFO("SD context initialized successfully");
-
-    return true;
-}
-
 bool ImageGenerator::isInitialized() const { return initialized_ && sd_ctx_ != nullptr; }
+
+std::string ImageGenerator::getCurrentModelPath() const { return current_model_path_; }
 
 void ImageGenerator::interrupt() {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -164,12 +114,13 @@ std::vector<std::string> ImageGenerator::generateImg2Img(const ImageGenerationPa
 
 std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationParams& params, bool is_img2img,
                                                           const std::string& task_id) {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    if (!isInitialized()) {
-        LOG_ERROR("SD context not initialized");
-        throw std::runtime_error("SD context not initialized");
+    // Ensure the correct model is loaded based on current options (before taking lock)
+    if (!ensureModelLoaded()) {
+        LOG_ERROR("Failed to ensure model is loaded");
+        throw std::runtime_error("Failed to load model from options");
     }
+
+    std::lock_guard<std::mutex> lock(mutex_);
 
     interrupted_ = false;
     current_task_id_ = task_id;
@@ -458,4 +409,116 @@ void ImageGenerator::freeImage(sd_image_t& image) {
     image.width = 0;
     image.height = 0;
     image.channel = 0;
+}
+
+bool ImageGenerator::needsModelReload(const std::string& model_path) const {
+    // If not initialized, we need to load
+    if (!initialized_ || !sd_ctx_) {
+        return true;
+    }
+
+    // If model path changed, we need to reload
+    if (model_path != current_model_path_) {
+        return true;
+    }
+
+    return false;
+}
+
+bool ImageGenerator::ensureModelLoaded() {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Get options
+    auto options_wvalue = options_manager_->getOptions();
+    std::string options_json = options_wvalue.dump();
+    auto options = crow::json::load(options_json);
+
+    if (!options) {
+        LOG_ERROR("Failed to load options");
+        return false;
+    }
+
+    // Get model path from options
+    std::string model_path;
+    if (options.has("sd_model_checkpoint")) {
+        std::string model_name = std::string(options["sd_model_checkpoint"].s());
+
+        if (!model_name.empty()) {
+            // Get full path from model manager
+            ModelInfo model_info = model_manager_->getModelByName(model_name, ModelType::CHECKPOINT);
+            if (!model_info.full_path.empty()) {
+                model_path = model_info.full_path;
+            } else {
+                LOG_ERROR("Model not found: %s", model_name.c_str());
+                return false;
+            }
+        } else {
+            LOG_ERROR("No model selected. Please configure sd_model_checkpoint in options.");
+            return false;
+        }
+    } else {
+        LOG_ERROR("No model selected. Please configure sd_model_checkpoint in options.");
+        return false;
+    }
+
+    // Check if we need to reload the model
+    if (!needsModelReload(model_path)) {
+        LOG_DEBUG("Model already loaded: %s", model_path.c_str());
+        return true;
+    }
+
+    LOG_INFO("Model change detected, loading new model: %s", model_path.c_str());
+
+    // Free old context if exists
+    if (sd_ctx_) {
+        LOG_INFO("Freeing old SD context for model switch");
+        free_sd_ctx(sd_ctx_);
+        sd_ctx_ = nullptr;
+        initialized_ = false;
+    }
+
+    // Initialize with new model (mutex already held, don't call initialize which would deadlock)
+    sd_set_log_callback(sd_log_cb, nullptr);
+
+    if (model_path.empty()) {
+        LOG_ERROR("Model path is empty");
+        return false;
+    }
+
+    LOG_INFO("Initializing SD context with model: %s", model_path.c_str());
+
+    // Initialize context parameters
+    sd_ctx_params_t params;
+    sd_ctx_params_init(&params);
+
+    params.free_params_immediately = false;
+
+    params.model_path = model_path.c_str();
+    params.vae_path = nullptr;
+    params.taesd_path = nullptr;
+    params.lora_model_dir = nullptr;
+    params.embedding_dir = nullptr;
+    params.vae_decode_only = false;  // We need encoding for img2img
+
+    // Set RNG type
+    params.rng_type = CUDA_RNG;
+
+    // Create SD context
+    sd_ctx_ = new_sd_ctx(&params);
+    if (!sd_ctx_) {
+        LOG_ERROR("Failed to create SD context");
+        return false;
+    }
+
+    // Track currently loaded model paths
+    current_model_path_ = model_path;
+    current_vae_path_ = "";
+    current_taesd_path_ = "";
+    current_lora_model_dir_ = "";
+    current_embeddings_dir_ = "";
+
+    initialized_ = true;
+    LOG_INFO("SD context initialized successfully");
+
+    return true;
 }

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "model_manager.h"
 #include "options_manager.h"
 #include "stable-diffusion.h"
 #include "task_state.h"
@@ -37,16 +38,14 @@ struct ImageGenerationParams {
 class ImageGenerator {
    public:
     ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
-                   std::shared_ptr<OptionsManager> options_manager);
+                   std::shared_ptr<OptionsManager> options_manager, std::shared_ptr<ModelManager> model_manager);
     ~ImageGenerator();
-
-    // Initialize SD context
-    bool initialize(const std::string& model_path, const std::string& vae_path = "", const std::string& taesd_path = "",
-                    const std::string& lora_model_dir = "", const std::string& embeddings_dir = "", int n_threads = -1,
-                    sd_type_t wtype = SD_TYPE_COUNT, bool offload_to_cpu = false, bool vae_on_cpu = false);
 
     // Check if initialized
     bool isInitialized() const;
+
+    // Get currently loaded model path
+    std::string getCurrentModelPath() const;
 
     // Generate images
     std::vector<std::string> generateTxt2Img(const ImageGenerationParams& params, const std::string& task_id = "");
@@ -79,13 +78,27 @@ class ImageGenerator {
     std::vector<std::string> generateInternal(const ImageGenerationParams& params, bool is_img2img,
                                               const std::string& task_id);
 
+    // Check if model needs to be reloaded based on options
+    bool needsModelReload(const std::string& model_path) const;
+
+    // Ensure model is loaded based on current options
+    bool ensureModelLoaded();
+
     sd_ctx_t* sd_ctx_;
     std::shared_ptr<TaskStateManager> task_state_manager_;
     std::shared_ptr<OptionsManager> options_manager_;
+    std::shared_ptr<ModelManager> model_manager_;
     std::mutex mutex_;
     bool initialized_;
     bool interrupted_;
     std::string current_task_id_;
+
+    // Track currently loaded model paths for change detection
+    std::string current_model_path_;
+    std::string current_vae_path_;
+    std::string current_taesd_path_;
+    std::string current_lora_model_dir_;
+    std::string current_embeddings_dir_;
 };
 
 #endif  // __IMAGE_GENERATOR_H__

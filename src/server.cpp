@@ -85,9 +85,10 @@ Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     options_manager_ = std::make_shared<OptionsManager>();
     task_state_manager_ = std::make_shared<TaskStateManager>();
 
-    // Create ImageGenerator with shared task state manager
-    image_generator_ =
-        std::make_unique<ImageGenerator>(task_state_manager_, options_manager_);  // Load existing options
+    // Create ImageGenerator with shared task state manager and model manager
+    image_generator_ = std::make_unique<ImageGenerator>(task_state_manager_, options_manager_, model_manager_);
+
+    // Load existing options
     options_manager_->load();
 
     setupRoutes();
@@ -236,77 +237,6 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
     task_state_manager_->createTask(task_id);
 
     try {
-        // Check if image generator is initialized
-        if (!image_generator_->isInitialized()) {
-            // Try to initialize with model from options
-            auto options_wvalue = options_manager_->getOptions();
-            std::string options_json = options_wvalue.dump();
-            auto options = crow::json::load(options_json);
-
-            if (!options) {
-                crow::json::wvalue error;
-                error["error"] = "Failed to load options";
-                task_state_manager_->completeTask(task_id, {}, error.dump());
-                return crow::response(500, error);
-            }
-
-            std::string model_path;
-            if (options.has("sd_model_checkpoint")) {
-                std::string model_name = std::string(options["sd_model_checkpoint"].s());
-
-                if (!model_name.empty()) {
-                    // Get full path from model manager
-                    ModelInfo model_info = model_manager_->getModelByName(model_name, ModelType::CHECKPOINT);
-                    if (!model_info.full_path.empty()) {
-                        model_path = model_info.full_path;
-                    } else {
-                        LOG_ERROR("Model not found: %s", model_name.c_str());
-                        crow::json::wvalue error;
-                        error["error"] = std::string("Model not found: ") + model_name;
-                        task_state_manager_->completeTask(task_id, {}, error.dump());
-                        return crow::response(400, error);
-                    }
-                } else {
-                    crow::json::wvalue error;
-                    error["error"] = std::string("No model selected. Please configure sd_model_checkpoint in options.");
-                    task_state_manager_->completeTask(task_id, {}, error.dump());
-                    return crow::response(400, error);
-                }
-            } else {
-                crow::json::wvalue error;
-                error["error"] = std::string("No model selected. Please configure sd_model_checkpoint in options.");
-                task_state_manager_->completeTask(task_id, {}, error.dump());
-                return crow::response(400, error);
-            }
-
-            // Get other paths from options
-            std::string vae_path;
-            if (options.has("sd_vae")) {
-                std::string vae_name = std::string(options["sd_vae"].s());
-                if (!vae_name.empty()) {
-                    ModelInfo vae_info = model_manager_->getModelByName(vae_name, ModelType::VAE);
-                    if (!vae_info.full_path.empty()) {
-                        vae_path = vae_info.full_path;
-                    }
-                }
-            }
-
-            // Initialize the generator
-            int n_threads = -1;
-            bool offload_to_cpu = false;
-            bool vae_on_cpu = false;
-
-            if (!image_generator_->initialize(model_path, vae_path, "", "", "", n_threads, SD_TYPE_COUNT,
-                                              offload_to_cpu, vae_on_cpu)) {
-                crow::json::wvalue error;
-                error["error"] = std::string("Failed to initialize image generator");
-                task_state_manager_->completeTask(task_id, {}, error.dump());
-                return crow::response(500, error);
-            }
-
-            LOG_INFO("Image generator initialized with model: %s", model_path.c_str());
-        }
-
         // Parse generation parameters
         ImageGenerationParams params;
         params.prompt = json_body.has("prompt") ? std::string(json_body["prompt"].s()) : "";
