@@ -164,7 +164,7 @@ crow::response Server::handleGetOptions() {
         return crow::response(200, options);
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to get options: ") + e.what();
+        error["message"] = std::string("Failed to get options: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -174,7 +174,7 @@ crow::response Server::handlePostOptions(const crow::request& req) {
         auto json_body = crow::json::load(req.body);
         if (!json_body) {
             crow::json::wvalue error;
-            error["error"] = "Invalid JSON";
+            error["message"] = "Invalid JSON";
             return crow::response(400, error);
         }
 
@@ -182,12 +182,12 @@ crow::response Server::handlePostOptions(const crow::request& req) {
             return crow::response(200, "OK");
         } else {
             crow::json::wvalue error;
-            error["error"] = "Failed to save options";
+            error["message"] = "Failed to save options";
             return crow::response(500, error);
         }
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to set options: ") + e.what();
+        error["message"] = std::string("Failed to set options: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -197,14 +197,14 @@ crow::response Server::handleTxt2Img(const crow::request& req) {
         auto json_body = crow::json::load(req.body);
         if (!json_body) {
             crow::json::wvalue error;
-            error["error"] = "Invalid JSON";
+            error["message"] = "Invalid JSON";
             return crow::response(400, error);
         }
 
         return generateImage(json_body, false);
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to generate image: ") + e.what();
+        error["message"] = std::string("Failed to generate image: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -214,14 +214,14 @@ crow::response Server::handleImg2Img(const crow::request& req) {
         auto json_body = crow::json::load(req.body);
         if (!json_body) {
             crow::json::wvalue error;
-            error["error"] = "Invalid JSON";
+            error["message"] = "Invalid JSON";
             return crow::response(400, error);
         }
 
         return generateImage(json_body, true);
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to generate image: ") + e.what();
+        error["message"] = std::string("Failed to generate image: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -308,7 +308,7 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
     } catch (const std::exception& e) {
         LOG_ERROR("Image generation error: %s", e.what());
         crow::json::wvalue error;
-        error["error"] = std::string("Generation failed: ") + e.what();
+        error["message"] = std::string("Generation failed: ") + e.what();
         task_state_manager_->completeTask(task_id, {}, error.dump());
         return crow::response(500, error);
     }
@@ -319,13 +319,13 @@ crow::response Server::handleProgress(const crow::request& req) {
         auto json_body = crow::json::load(req.body);
         if (!json_body) {
             crow::json::wvalue error;
-            error["error"] = "Invalid JSON";
+            error["message"] = "Invalid JSON";
             return crow::response(400, error);
         }
 
         if (!json_body.has("id_task")) {
             crow::json::wvalue error;
-            error["error"] = "Missing id_task parameter";
+            error["message"] = "Missing id_task parameter";
             return crow::response(400, error);
         }
 
@@ -333,7 +333,7 @@ crow::response Server::handleProgress(const crow::request& req) {
 
         if (!task_state_manager_->taskExists(task_id)) {
             crow::json::wvalue error;
-            error["error"] = "Task not found";
+            error["message"] = "Task not found";
             return crow::response(404, error);
         }
 
@@ -348,7 +348,7 @@ crow::response Server::handleProgress(const crow::request& req) {
         return crow::response(200, response);
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to get progress: ") + e.what();
+        error["message"] = std::string("Failed to get progress: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -364,7 +364,7 @@ crow::response Server::handleInterrupt(const crow::request& req) {
         return crow::response(200, "OK");
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to interrupt: ") + e.what();
+        error["message"] = std::string("Failed to interrupt: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -374,7 +374,7 @@ crow::response Server::handleExtraBatchImages(const crow::request& req) {
         auto json_body = crow::json::load(req.body);
         if (!json_body) {
             crow::json::wvalue error;
-            error["error"] = "Invalid JSON";
+            error["message"] = "Invalid JSON";
             return crow::response(400, error);
         }
 
@@ -395,7 +395,7 @@ crow::response Server::handleExtraBatchImages(const crow::request& req) {
         return crow::response(200, response);
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to process images: ") + e.what();
+        error["message"] = std::string("Failed to process images: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -405,7 +405,7 @@ crow::response Server::handleControlNetDetect(const crow::request& req) {
         auto json_body = crow::json::load(req.body);
         if (!json_body) {
             crow::json::wvalue error;
-            error["error"] = "Invalid JSON";
+            error["message"] = "Invalid JSON";
             return crow::response(400, error);
         }
 
@@ -430,7 +430,7 @@ crow::response Server::handleControlNetDetect(const crow::request& req) {
         return crow::response(200, response);
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to detect: ") + e.what();
+        error["message"] = std::string("Failed to detect: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -444,7 +444,7 @@ crow::response Server::handleRefreshCheckpoints() {
         return crow::response(200, "OK");
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to refresh checkpoints: ") + e.what();
+        error["message"] = std::string("Failed to refresh checkpoints: ") + e.what();
         return crow::response(500, error);
     }
 }
@@ -458,7 +458,7 @@ crow::response Server::handleRefreshVaeAndTextEncoders() {
         return crow::response(200, "OK");
     } catch (const std::exception& e) {
         crow::json::wvalue error;
-        error["error"] = std::string("Failed to refresh VAE and text encoders: ") + e.what();
+        error["message"] = std::string("Failed to refresh VAE and text encoders: ") + e.what();
         return crow::response(500, error);
     }
 }
