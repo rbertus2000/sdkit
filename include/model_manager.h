@@ -48,6 +48,9 @@ class ModelManager {
     void setControlnetDir(const std::string& dir);
     void setTextEncoderDir(const std::string& dir);
 
+    // Get model directories
+    std::string getRealesrganModelsPath() const;
+
     // Scan directories and build the model index
     void scanAllDirectories();
     void scanDirectory(ModelType type);

@@ -56,15 +56,6 @@ class ImageGenerator {
     void interrupt();
 
    private:
-    // Convert sd_image_t to base64 string
-    std::string imageToBase64(const sd_image_t& image);
-
-    // Convert base64 string to sd_image_t
-    sd_image_t base64ToImage(const std::string& base64_data, int desired_channels = 3);
-
-    // Resize sd_image_t to target dimensions (modifies in place)
-    bool resizeImage(sd_image_t& image, int target_width, int target_height);
-
     // Create init image from base64 string
     sd_image_t createInitImage(const ImageGenerationParams& params);
 

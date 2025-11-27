@@ -4,7 +4,9 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
+#include "image_utils.h"
 #include "logging.h"
 
 // Custom log handler for Crow that filters out /ping requests
@@ -76,6 +78,19 @@ static std::string convert_webui_scheduler_name(const std::string& name) {
     return name;
 }
 
+// Convert webui upscaler names to stable-diffusion.cpp compatible names
+static std::string convert_webui_upscaler_name(const std::string& name) {
+    static const std::unordered_map<std::string, std::string> mapping = {
+        {"R-ESRGAN 4x+", "RealESRGAN_x4plus"},
+        {"R-ESRGAN 4x+ Anime6B", "RealESRGAN_x4plus_anime_6B"},
+        // Add more mappings as needed
+    };
+
+    auto it = mapping.find(name);
+    if (it != mapping.end()) return it->second;
+    return name;
+}
+
 Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     : port_(port), model_manager_(model_manager), should_stop_(false) {
     // Set up custom logger to filter out unnecessary requests
@@ -88,7 +103,8 @@ Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     // Create ImageGenerator with shared task state manager and model manager
     image_generator_ = std::make_unique<ImageGenerator>(task_state_manager_, options_manager_, model_manager_);
 
-    // Load existing options
+    // Create ImageFilters for upscaling and other image processing
+    image_filters_ = std::make_unique<ImageFilters>(model_manager_);  // Load existing options
     options_manager_->load();
 
     setupRoutes();
@@ -378,14 +394,46 @@ crow::response Server::handleExtraBatchImages(const crow::request& req) {
             return crow::response(400, error);
         }
 
-        // Stub implementation: just return processed versions of input images
+        if (!json_body.has("imageList")) {
+            crow::json::wvalue error;
+            error["message"] = "Missing imageList parameter";
+            return crow::response(400, error);
+        }
+
+        // Check if upscaling is requested
+        int upscaling_resize = json_body.has("upscaling_resize") ? json_body["upscaling_resize"].i() : 0;
+
+        // Get upscaler name from request (defaults to empty string)
+        std::string upscaler_name;
+        if (json_body.has("upscaler_1")) {
+            std::string webui_upscaler_name = json_body["upscaler_1"].s();
+            upscaler_name = convert_webui_upscaler_name(webui_upscaler_name);
+        }
+
+        auto image_list = json_body["imageList"];
         std::vector<std::string> result_images;
 
-        if (json_body.has("imageList")) {
-            auto image_list = json_body["imageList"];
+        if (upscaling_resize > 0) {
+            // Collect images into vector
+            std::vector<std::string> input_images;
             for (size_t i = 0; i < image_list.size(); i++) {
-                // In real implementation, apply upscaling/face restoration
-                result_images.push_back("upscaled_image_base64_" + std::to_string(i));
+                input_images.push_back(image_list[i]["data"].s());
+            }
+
+            LOG_INFO("Upscaling %zu images with upscaling factor %d using upscaler: %s", input_images.size(),
+                     upscaling_resize, upscaler_name.c_str());
+
+            // Use ImageFilters to upscale with specified upscaler
+            result_images = image_filters_->upscaleBatch(input_images, upscaler_name, upscaling_resize);
+            if (result_images.empty()) {
+                crow::json::wvalue error;
+                error["message"] = "Upscaler not available. Please configure an upscaler model in options.";
+                return crow::response(500, error);
+            }
+        } else {
+            // No upscaling requested, just return the images as-is
+            for (size_t i = 0; i < image_list.size(); i++) {
+                result_images.push_back(image_list[i]["data"].s());
             }
         }
 
@@ -394,6 +442,8 @@ crow::response Server::handleExtraBatchImages(const crow::request& req) {
 
         return crow::response(200, response);
     } catch (const std::exception& e) {
+        LOG_ERROR("Extra batch images error: %s", e.what());
+
         crow::json::wvalue error;
         error["message"] = std::string("Failed to process images: ") + e.what();
         return crow::response(500, error);

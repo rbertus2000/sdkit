@@ -76,6 +76,12 @@ void ModelManager::setTextEncoderDir(const std::string& dir) {
     LOG_INFO("Text Encoder directory set to: %s", dir.c_str());
 }
 
+std::string ModelManager::getRealesrganModelsPath() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = model_directories_.find(ModelType::REALESRGAN);
+    return it != model_directories_.end() ? it->second : "";
+}
+
 bool ModelManager::isValidModelFile(const std::string& filename) const {
     std::string lower_filename = filename;
     std::transform(lower_filename.begin(), lower_filename.end(), lower_filename.begin(), ::tolower);

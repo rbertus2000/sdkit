@@ -5,6 +5,7 @@
 #include <string>
 
 #include "crow.h"
+#include "image_filters.h"
 #include "image_generator.h"
 #include "model_manager.h"
 #include "options_manager.h"
@@ -43,6 +44,7 @@ class Server {
     std::shared_ptr<TaskStateManager> task_state_manager_;
     std::shared_ptr<ModelManager> model_manager_;
     std::unique_ptr<ImageGenerator> image_generator_;
+    std::unique_ptr<ImageFilters> image_filters_;
     bool should_stop_;
 };
 
