@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "image_filters.h"
 #include "model_manager.h"
 #include "options_manager.h"
 #include "stable-diffusion.h"
@@ -31,6 +32,11 @@ struct ImageGenerationParams {
     std::string mask_base64;
     float strength = 0.75f;
 
+    // ControlNet specific
+    std::string control_image_base64;
+    float control_strength = 1.0f;
+    std::string controlnet_model;
+
     // Other options
     int clip_skip = -1;
 };
@@ -38,7 +44,8 @@ struct ImageGenerationParams {
 class ImageGenerator {
    public:
     ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
-                   std::shared_ptr<OptionsManager> options_manager, std::shared_ptr<ModelManager> model_manager);
+                   std::shared_ptr<OptionsManager> options_manager, std::shared_ptr<ModelManager> model_manager,
+                   std::shared_ptr<ImageFilters> image_filters);
     ~ImageGenerator();
 
     // Check if initialized
@@ -62,6 +69,9 @@ class ImageGenerator {
     // Create mask image from base64 string or default
     sd_image_t createMaskImage(const ImageGenerationParams& params);
 
+    // Create control image from base64 string and apply canny preprocessing
+    sd_image_t createControlImage(const ImageGenerationParams& params);
+
     // Free sd_image_t data
     void freeImage(sd_image_t& image);
 
@@ -72,13 +82,14 @@ class ImageGenerator {
     // Check if model needs to be reloaded based on options
     bool needsModelReload(const std::string& model_path) const;
 
-    // Ensure model is loaded based on current options
-    bool ensureModelLoaded();
+    // Ensure model is loaded based on current options and controlnet
+    bool ensureModelLoaded(const std::string& controlnet_model = "");
 
     sd_ctx_t* sd_ctx_;
     std::shared_ptr<TaskStateManager> task_state_manager_;
     std::shared_ptr<OptionsManager> options_manager_;
     std::shared_ptr<ModelManager> model_manager_;
+    std::shared_ptr<ImageFilters> image_filters_;
     std::mutex mutex_;
     bool initialized_;
     bool interrupted_;
@@ -93,6 +104,7 @@ class ImageGenerator {
     std::string current_taesd_path_;
     std::string current_lora_model_dir_;
     std::string current_embeddings_dir_;
+    std::string current_controlnet_path_;
 };
 
 #endif  // __IMAGE_GENERATOR_H__

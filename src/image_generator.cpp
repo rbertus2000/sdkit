@@ -72,11 +72,12 @@ static void preview_callback(int step, int frame_count, sd_image_t* frames, bool
 
 ImageGenerator::ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
                                std::shared_ptr<OptionsManager> options_manager,
-                               std::shared_ptr<ModelManager> model_manager)
+                               std::shared_ptr<ModelManager> model_manager, std::shared_ptr<ImageFilters> image_filters)
     : sd_ctx_(nullptr),
       task_state_manager_(task_state_manager),
       options_manager_(options_manager),
       model_manager_(model_manager),
+      image_filters_(image_filters),
       initialized_(false),
       interrupted_(false) {
     LOG_INFO("ImageGenerator created");
@@ -112,8 +113,8 @@ std::vector<std::string> ImageGenerator::generateImg2Img(const ImageGenerationPa
 
 std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationParams& params, bool is_img2img,
                                                           const std::string& task_id) {
-    // Ensure the correct model is loaded based on current options (before taking lock)
-    if (!ensureModelLoaded()) {
+    // Ensure the correct model is loaded based on current options and controlnet (before taking lock)
+    if (!ensureModelLoaded(params.controlnet_model)) {
         LOG_ERROR("Failed to ensure model is loaded");
         throw std::runtime_error("Failed to load model from options");
     }
@@ -181,6 +182,15 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
         gen_params.strength = params.strength;
     }
 
+    // ControlNet specific
+    sd_image_t control_image = {0, 0, 0, nullptr};
+    if (!params.control_image_base64.empty() && !params.controlnet_model.empty()) {
+        control_image = createControlImage(params);
+        gen_params.control_image = control_image;
+        gen_params.control_strength = params.control_strength;
+        LOG_INFO("Using ControlNet with strength %.2f", params.control_strength);
+    }
+
     // Generate images
     sd_image_t* result = generate_image(sd_ctx_, &gen_params);
 
@@ -190,6 +200,10 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     }
     if (gen_params.mask_image.data) {
         freeImage(gen_params.mask_image);
+    }
+    // Free control image if used
+    if (control_image.data) {
+        freeImage(control_image);
     }
 
     if (!result) {
@@ -278,6 +292,38 @@ sd_image_t ImageGenerator::createMaskImage(const ImageGenerationParams& params) 
     return mask_image;
 }
 
+sd_image_t ImageGenerator::createControlImage(const ImageGenerationParams& params) {
+    sd_image_t control_image = {0, 0, 0, nullptr};
+
+    if (params.control_image_base64.empty()) {
+        return control_image;
+    }
+
+    // Decode control image from base64
+    control_image = base64ToImage(params.control_image_base64);
+    if (!control_image.data) {
+        throw std::runtime_error("Failed to decode control image");
+    }
+
+    // Resize control image to match generation dimensions
+    if (!resizeImage(control_image, params.width, params.height, true)) {
+        freeImage(control_image);
+        throw std::runtime_error("Failed to resize control image");
+    }
+
+    // Apply ControlNet preprocessing using ImageFilters
+    sd_image_t processed_image = image_filters_->applyControlNetFilter(control_image, "canny");
+    if (!processed_image.data) {
+        LOG_WARNING("Failed to apply ControlNet preprocessing to control image, using original");
+    } else {
+        freeImage(control_image);
+        control_image = processed_image;
+        LOG_INFO("Applied ControlNet preprocessing to control image");
+    }
+
+    return control_image;
+}
+
 void ImageGenerator::freeImage(sd_image_t& image) {
     if (image.data) {
         free(image.data);  // Works for both stbi allocated and manually allocated memory
@@ -301,7 +347,7 @@ bool ImageGenerator::needsModelReload(const std::string& model_path) const {
     return false;
 }
 
-bool ImageGenerator::ensureModelLoaded() {
+bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     // Get options
@@ -335,6 +381,18 @@ bool ImageGenerator::ensureModelLoaded() {
     } else {
         LOG_ERROR("No model selected. Please configure sd_model_checkpoint in options.");
         return false;
+    }
+
+    // Get ControlNet model path if specified
+    std::string controlnet_path_str;
+    if (!controlnet_model.empty()) {
+        ModelInfo controlnet_info = model_manager_->getModelByName(controlnet_model, ModelType::CONTROLNET);
+        if (!controlnet_info.full_path.empty()) {
+            controlnet_path_str = controlnet_info.full_path;
+            LOG_INFO("Found ControlNet model: %s -> %s", controlnet_model.c_str(), controlnet_path_str.c_str());
+        } else {
+            LOG_WARNING("ControlNet model not found: %s", controlnet_model.c_str());
+        }
     }
 
     // Collect additional modules for comparison
@@ -375,10 +433,11 @@ bool ImageGenerator::ensureModelLoaded() {
 
     std::string lora_dir_str = model_manager_->getLoraDir();
 
-    // Check if we need to reload the model (check all paths)
+    // Check if we need to reload the model (check all paths including controlnet)
     bool needs_reload = !initialized_ || !sd_ctx_ || model_path != current_model_path_ ||
                         vae_path_str != current_vae_path_ || clip_l_path_str != current_clip_l_path_ ||
-                        clip_g_path_str != current_clip_g_path_ || t5xxl_path_str != current_t5xxl_path_;
+                        clip_g_path_str != current_clip_g_path_ || t5xxl_path_str != current_t5xxl_path_ ||
+                        controlnet_path_str != current_controlnet_path_;
 
     if (!needs_reload) {
         LOG_DEBUG("Model already loaded: %s", model_path.c_str());
@@ -430,6 +489,7 @@ bool ImageGenerator::ensureModelLoaded() {
     params.clip_g_path = clip_g_path_str.empty() ? nullptr : clip_g_path_str.c_str();
     params.t5xxl_path = t5xxl_path_str.empty() ? nullptr : t5xxl_path_str.c_str();
     params.taesd_path = nullptr;
+    params.control_net_path = controlnet_path_str.empty() ? nullptr : controlnet_path_str.c_str();
     params.lora_model_dir = lora_dir_str.empty() ? nullptr : lora_dir_str.c_str();
     params.embedding_dir = nullptr;
     params.vae_decode_only = false;  // We need encoding for img2img
@@ -446,6 +506,9 @@ bool ImageGenerator::ensureModelLoaded() {
     }
     if (!t5xxl_path_str.empty()) {
         LOG_INFO("Loading T5XXL model: %s", t5xxl_path_str.c_str());
+    }
+    if (!controlnet_path_str.empty()) {
+        LOG_INFO("Loading ControlNet model: %s", controlnet_path_str.c_str());
     }
     if (!lora_dir_str.empty()) {
         LOG_INFO("Using LoRA model directory: %s", lora_dir_str.c_str());
@@ -470,6 +533,7 @@ bool ImageGenerator::ensureModelLoaded() {
     current_taesd_path_ = "";
     current_lora_model_dir_ = lora_dir_str;
     current_embeddings_dir_ = "";
+    current_controlnet_path_ = controlnet_path_str;
 
     initialized_ = true;
     LOG_INFO("SD context initialized successfully");

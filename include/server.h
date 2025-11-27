@@ -44,7 +44,7 @@ class Server {
     std::shared_ptr<TaskStateManager> task_state_manager_;
     std::shared_ptr<ModelManager> model_manager_;
     std::unique_ptr<ImageGenerator> image_generator_;
-    std::unique_ptr<ImageFilters> image_filters_;
+    std::shared_ptr<ImageFilters> image_filters_;
     bool should_stop_;
 };
 

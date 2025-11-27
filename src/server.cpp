@@ -1,6 +1,7 @@
 #include "server.h"
 
 #include <chrono>
+#include <cmath>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -91,6 +92,21 @@ static std::string convert_webui_upscaler_name(const std::string& name) {
     return name;
 }
 
+// Convert webui ControlNet model names to sdkit compatible names (remove hash suffix)
+static std::string convert_webui_controlnet_model_name(const std::string& name) {
+    // Remove the hash suffix like " [a3cd7cd6]" from the end
+    size_t bracket_pos = name.find_last_of('[');
+    if (bracket_pos != std::string::npos) {
+        return name.substr(0, bracket_pos - 1);  // -1 to remove the space before [
+    }
+    return name;
+}
+
+// Round dimension to nearest multiple of 64
+static int round_to_nearest_multiple_of_64(int dimension) {
+    return std::round(static_cast<double>(dimension) / 64.0) * 64;
+}
+
 Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     : port_(port), model_manager_(model_manager), should_stop_(false) {
     // Set up custom logger to filter out unnecessary requests
@@ -100,11 +116,13 @@ Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
     options_manager_ = std::make_shared<OptionsManager>();
     task_state_manager_ = std::make_shared<TaskStateManager>();
 
-    // Create ImageGenerator with shared task state manager and model manager
-    image_generator_ = std::make_unique<ImageGenerator>(task_state_manager_, options_manager_, model_manager_);
-
     // Create ImageFilters for upscaling and other image processing
-    image_filters_ = std::make_unique<ImageFilters>(model_manager_);  // Load existing options
+    image_filters_ = std::make_shared<ImageFilters>(model_manager_);
+
+    // Create ImageGenerator with shared task state manager and model manager
+    image_generator_ =
+        std::make_unique<ImageGenerator>(task_state_manager_, options_manager_, model_manager_, image_filters_);
+
     options_manager_->load();
 
     setupRoutes();
@@ -289,6 +307,43 @@ crow::response Server::generateImage(const crow::json::rvalue& json_body, bool i
             params.strength = json_body.has("denoising_strength") ? json_body["denoising_strength"].d() : 0.75f;
         }
 
+        // ControlNet parameters from alwayson_scripts
+        if (json_body.has("alwayson_scripts") && json_body["alwayson_scripts"].has("controlnet")) {
+            auto controlnet_obj = json_body["alwayson_scripts"]["controlnet"];
+            if (controlnet_obj.has("args") && controlnet_obj["args"].size() > 0) {
+                auto controlnet_args = controlnet_obj["args"][0];
+
+                // Extract control image
+                if (controlnet_args.has("image")) {
+                    params.control_image_base64 = std::string(controlnet_args["image"].s());
+                }
+
+                // Extract control strength (weight)
+                if (controlnet_args.has("weight")) {
+                    params.control_strength = controlnet_args["weight"].d();
+                }
+
+                // Extract controlnet model name
+                if (controlnet_args.has("model")) {
+                    std::string webui_model_name = std::string(controlnet_args["model"].s());
+                    params.controlnet_model = convert_webui_controlnet_model_name(webui_model_name);
+                }
+
+                LOG_INFO("ControlNet params: model='%s', strength=%.2f, has_image=%s", params.controlnet_model.c_str(),
+                         params.control_strength, params.control_image_base64.empty() ? "no" : "yes");
+            }
+        }
+
+        // Round dimensions to nearest multiple of 64 when ControlNet is used
+        if (!params.controlnet_model.empty()) {
+            int original_width = params.width;
+            int original_height = params.height;
+            params.width = round_to_nearest_multiple_of_64(params.width);
+            params.height = round_to_nearest_multiple_of_64(params.height);
+            LOG_INFO("ControlNet detected, rounded dimensions from %dx%d to %dx%d", original_width, original_height,
+                     params.width, params.height);
+        }
+
         // Generate images (runs in same thread, blocks until complete)
         std::vector<std::string> images;
         if (is_img2img) {
@@ -459,19 +514,22 @@ crow::response Server::handleControlNetDetect(const crow::request& req) {
             return crow::response(400, error);
         }
 
-        // Stub implementation: return processed versions of input images
         std::vector<std::string> result_images;
 
         if (json_body.has("controlnet_input_images")) {
             auto input_images = json_body["controlnet_input_images"];
+            std::vector<std::string> base64_images;
+            for (size_t i = 0; i < input_images.size(); i++) {
+                base64_images.push_back(std::string(input_images[i].s()));
+            }
+
             std::string module = "canny";
             if (json_body.has("controlnet_module")) {
                 module = json_body["controlnet_module"].s();
             }
-            for (size_t i = 0; i < input_images.size(); i++) {
-                // In real implementation, apply controlnet detection
-                result_images.push_back("detected_" + module + "_base64_" + std::to_string(i));
-            }
+
+            // Use ImageFilters to apply ControlNet preprocessing
+            result_images = image_filters_->applyControlNetFilterBatch(base64_images, module);
         }
 
         crow::json::wvalue response;

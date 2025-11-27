@@ -86,6 +86,73 @@ sd_image_t ImageFilters::upscaleImage(const sd_image_t& input_image, int upscale
     return upscaled_image;
 }
 
+std::vector<std::string> ImageFilters::applyControlNetFilterBatch(const std::vector<std::string>& base64_images,
+                                                                  const std::string& module) {
+    std::vector<std::string> result_images;
+
+    for (size_t i = 0; i < base64_images.size(); i++) {
+        // Convert base64 to sd_image_t
+        sd_image_t input_image = base64ToImage(base64_images[i]);
+        if (!input_image.data) {
+            LOG_ERROR("Failed to decode image %zu for ControlNet processing", i);
+            result_images.push_back("");
+            continue;
+        }
+
+        // Apply ControlNet preprocessing using the single-image function
+        sd_image_t processed_image = applyControlNetFilter(input_image, module);
+
+        // Free input image
+        freeImage(input_image);
+
+        if (!processed_image.data) {
+            LOG_ERROR("Failed to apply ControlNet preprocessing to image %zu", i);
+            result_images.push_back("");
+            continue;
+        }
+
+        // Convert processed image back to base64
+        std::string processed_base64 = imageToBase64(processed_image);
+        result_images.push_back(processed_base64);
+
+        // Free processed image
+        freeImage(processed_image);
+    }
+
+    return result_images;
+}
+
+sd_image_t ImageFilters::applyControlNetFilter(const sd_image_t& input_image, const std::string& module) {
+    sd_image_t result_image = {0, 0, 0, nullptr};
+
+    if (!input_image.data) {
+        LOG_ERROR("Cannot apply ControlNet filter to invalid image");
+        return result_image;
+    }
+
+    // Copy the input image data
+    result_image.width = input_image.width;
+    result_image.height = input_image.height;
+    result_image.channel = input_image.channel;
+    size_t data_size = input_image.width * input_image.height * input_image.channel * sizeof(uint8_t);
+    result_image.data = (uint8_t*)malloc(data_size);
+    if (!result_image.data) {
+        LOG_ERROR("Failed to allocate memory for ControlNet filtered image");
+        return result_image;
+    }
+    memcpy(result_image.data, input_image.data, data_size);
+
+    // Apply ControlNet preprocessing (for now, always use canny)
+    bool preprocess_result = preprocess_canny(result_image, 0.08f, 0.08f, 0.8f, 1.0f, false);
+    if (!preprocess_result) {
+        LOG_WARNING("Failed to apply ControlNet preprocessing (%s), using original", module.c_str());
+    } else {
+        LOG_INFO("Applied ControlNet preprocessing (%s)", module.c_str());
+    }
+
+    return result_image;
+}
+
 bool ImageFilters::ensureUpscalerLoaded(const std::string& upscaler_name) {
     // Upscaler name is required
     if (upscaler_name.empty()) {

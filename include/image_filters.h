@@ -19,6 +19,11 @@ class ImageFilters {
                                           const std::string& upscaler_name = "", int upscale_factor = 4);
     sd_image_t upscaleImage(const sd_image_t& input_image, int upscale_factor = 4);
 
+    // ControlNet preprocessing
+    std::vector<std::string> applyControlNetFilterBatch(const std::vector<std::string>& base64_images,
+                                                        const std::string& module = "canny");
+    sd_image_t applyControlNetFilter(const sd_image_t& input_image, const std::string& module = "canny");
+
     // Future: Add GFPGAN and other filters
     // std::vector<std::string> restoreFacesBatch(const std::vector<std::string>& base64_images);
     // sd_image_t restoreFaces(const sd_image_t& input_image);
