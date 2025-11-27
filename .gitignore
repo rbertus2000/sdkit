@@ -166,3 +166,4 @@ build_vk
 build_linux
 generated_images
 
+run_server.bat
