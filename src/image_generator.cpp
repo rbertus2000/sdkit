@@ -373,6 +373,8 @@ bool ImageGenerator::ensureModelLoaded() {
         }
     }
 
+    std::string lora_dir_str = model_manager_->getLoraDir();
+
     // Check if we need to reload the model (check all paths)
     bool needs_reload = !initialized_ || !sd_ctx_ || model_path != current_model_path_ ||
                         vae_path_str != current_vae_path_ || clip_l_path_str != current_clip_l_path_ ||
@@ -428,7 +430,7 @@ bool ImageGenerator::ensureModelLoaded() {
     params.clip_g_path = clip_g_path_str.empty() ? nullptr : clip_g_path_str.c_str();
     params.t5xxl_path = t5xxl_path_str.empty() ? nullptr : t5xxl_path_str.c_str();
     params.taesd_path = nullptr;
-    params.lora_model_dir = nullptr;
+    params.lora_model_dir = lora_dir_str.empty() ? nullptr : lora_dir_str.c_str();
     params.embedding_dir = nullptr;
     params.vae_decode_only = false;  // We need encoding for img2img
 
@@ -444,6 +446,9 @@ bool ImageGenerator::ensureModelLoaded() {
     }
     if (!t5xxl_path_str.empty()) {
         LOG_INFO("Loading T5XXL model: %s", t5xxl_path_str.c_str());
+    }
+    if (!lora_dir_str.empty()) {
+        LOG_INFO("Using LoRA model directory: %s", lora_dir_str.c_str());
     }
 
     // Set RNG type
@@ -463,7 +468,7 @@ bool ImageGenerator::ensureModelLoaded() {
     current_clip_g_path_ = clip_g_path_str;
     current_t5xxl_path_ = t5xxl_path_str;
     current_taesd_path_ = "";
-    current_lora_model_dir_ = "";
+    current_lora_model_dir_ = lora_dir_str;
     current_embeddings_dir_ = "";
 
     initialized_ = true;
