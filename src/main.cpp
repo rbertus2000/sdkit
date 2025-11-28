@@ -120,12 +120,6 @@ int main(int argc, char* argv[]) {
     // Set log level from command line argument
     set_log_level(args.log_level);
 
-    std::cout << "==================================" << std::endl;
-    std::cout << "  Stable Diffusion API Server" << std::endl;
-    std::cout << "==================================" << std::endl;
-    std::cout << "Port: " << args.port << std::endl;
-    std::cout << std::endl;
-
     // Create and configure model manager
     auto model_manager = std::make_shared<ModelManager>();
 
