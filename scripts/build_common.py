@@ -130,9 +130,9 @@ def collect_and_move_artifacts(build_dir, target_triple):
         new_name = f"{target_triple}-{basename}"
         tar_gz_name = f"{new_name}.tar.gz"
         tar_gz_path = os.path.join(release_artifacts_dir, tar_gz_name)
+        sha256 = compute_sha256(file_path)
         with tarfile.open(tar_gz_path, "w:gz", compresslevel=9) as tar:
             tar.add(file_path, arcname=basename)
-        sha256 = compute_sha256(tar_gz_path)
         uri = tar_gz_name
         manifest["files"][new_name] = {"sha256": sha256, "uri": uri}
 
