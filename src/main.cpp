@@ -19,6 +19,7 @@ void signal_handler(int signal) {
 struct CommandLineArgs {
     int port = 8188;
     std::string log_level = "info";
+    int parent_pid = 0;
     std::string ckpt_dir;
     std::string vae_dir;
     std::string hypernetwork_dir;
@@ -38,6 +39,7 @@ void print_usage(const char* program_name) {
     std::cerr << "  --port <port>                      Server port (default: 8188)" << std::endl;
     std::cerr << "  --log-level <level>                Log level: debug, info, warning, error (default: info)"
               << std::endl;
+    std::cerr << "  --parent-pid <pid>                 Parent process PID" << std::endl;
     std::cerr << "  --ckpt-dir <path>                  Checkpoint models directory" << std::endl;
     std::cerr << "  --vae-dir <path>                   VAE models directory" << std::endl;
     std::cerr << "  --hypernetwork-dir <path>          Hypernetwork models directory" << std::endl;
@@ -66,6 +68,14 @@ CommandLineArgs parse_args(int argc, char* argv[]) {
             }
         } else if (arg == "--log-level" && i + 1 < argc) {
             args.log_level = argv[++i];
+        } else if (arg == "--parent-pid" && i + 1 < argc) {
+            try {
+                args.parent_pid = std::stoi(argv[++i]);
+            } catch (const std::exception& e) {
+                std::cerr << "Invalid parent PID: " << argv[i] << std::endl;
+                print_usage(argv[0]);
+                exit(1);
+            }
         } else if (arg == "--ckpt-dir" && i + 1 < argc) {
             args.ckpt_dir = argv[++i];
         } else if (arg == "--vae-dir" && i + 1 < argc) {
