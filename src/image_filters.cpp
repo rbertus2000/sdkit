@@ -1,6 +1,7 @@
 #include "image_filters.h"
 
 #include <filesystem>
+#include <stdexcept>
 
 #include "image_utils.h"
 #include "logging.h"
@@ -176,7 +177,7 @@ bool ImageFilters::ensureUpscalerLoaded(const std::string& upscaler_name) {
     // Get the realesrgan models directory
     std::string realesrgan_dir = model_manager_->getRealesrganModelsPath();
     if (realesrgan_dir.empty()) {
-        throw std::exception("RealESRGAN models directory not set. Use --realesrgan-models-path argument.");
+        throw std::runtime_error("RealESRGAN models directory not set. Use --realesrgan-models-path argument.");
     }
 
     // Construct full path to the model
