@@ -7,7 +7,7 @@ def check_environment():
     """Check if Vulkan SDK is set up."""
     try:
         result = subprocess.run(["vulkaninfo", "--version"], capture_output=True, text=True)
-        if result.returncode == 0:
+        if not result.stderr:
             print("Vulkan environment detected.")
             return True
     except:
