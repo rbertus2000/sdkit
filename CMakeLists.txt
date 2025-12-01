@@ -41,6 +41,24 @@ endif()
 # Find Threads package for multithreading support
 find_package(Threads REQUIRED)
 
+# Set RPATH for Linux/Unix to find shared libraries in the same directory as the executable
+if(UNIX AND NOT APPLE)
+    set_target_properties(sdkit PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+        INSTALL_RPATH_USE_LINK_PATH TRUE
+    )
+endif()
+
+# For macOS, use @executable_path
+if(APPLE)
+    set_target_properties(sdkit PROPERTIES
+        BUILD_RPATH "@executable_path"
+        INSTALL_RPATH "@executable_path"
+        INSTALL_RPATH_USE_LINK_PATH TRUE
+    )
+endif()
+
 target_link_libraries(sdkit PRIVATE ggml)
 target_link_libraries(sdkit PRIVATE stable-diffusion)
 target_link_libraries(sdkit PRIVATE Threads::Threads)
