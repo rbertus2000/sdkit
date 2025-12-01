@@ -124,15 +124,23 @@ def collect_and_move_artifacts(build_dir, target_triple):
     release_artifacts_dir = os.path.join(build_dir, "release_artifacts")
     os.makedirs(release_artifacts_dir, exist_ok=True)
 
+    print("Collecting and compressing release artifacts...")
+
     manifest = {"files": {}}
     for file_path in release_files:
         basename = os.path.basename(file_path)
         new_name = f"{target_triple}-{basename}"
         tar_gz_name = f"{new_name}.tar.gz"
         tar_gz_path = os.path.join(release_artifacts_dir, tar_gz_name)
+
+        # Delete the existing archive if it exists
+        if os.path.exists(tar_gz_path):
+            os.remove(tar_gz_path)
+
         sha256 = compute_sha256(file_path)
         with tarfile.open(tar_gz_path, "w:gz", compresslevel=9) as tar:
             tar.add(file_path, arcname=basename)
+
         uri = tar_gz_name
         manifest["files"][basename] = {"sha256": sha256, "uri": uri}
 
