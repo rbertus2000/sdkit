@@ -1,13 +1,13 @@
 """
-Upload release artifacts for a specific target triple to GitHub releases.
+Upload release artifacts for a specific target to GitHub releases.
 
-This script uploads files from build/{target_triple}/release_artifacts
+This script uploads files from build/{target}/release_artifacts
 to a GitHub release, comparing manifests with existing assets.
 
 Usage:
-    python main.py --tag v1.0.0 --target-triple linux-x64-cpu
-    python main.py --tag v1.0.0 --target-triple linux-x64-cpu --repo owner/repo
-    python main.py --tag v1.0.0 --target-triple linux-x64-cpu --dry-run
+    python main.py --tag v1.0.0 --target linux-x64-cpu
+    python main.py --tag v1.0.0 --target linux-x64-cpu --repo owner/repo
+    python main.py --tag v1.0.0 --target linux-x64-cpu --dry-run
 
 Credentials:
     Create a .creds.json file in the current working directory with:
@@ -242,12 +242,12 @@ def compare_and_upload(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Upload release artifacts for a specific target triple to GitHub releases",
+        description="Upload release artifacts for a specific target to GitHub releases",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
     parser.add_argument("--tag", required=True, help="GitHub release tag (e.g., v1.0.0)")
-    parser.add_argument("--target-triple", required=True, help="Target triple (e.g., linux-x64-cpu)")
+    parser.add_argument("--target", required=True, help="Target (e.g., linux-x64-cpu)")
     parser.add_argument(
         "--repo",
         default="easydiffusion/sdkit",
@@ -270,7 +270,7 @@ def main():
         sys.exit(1)
 
     # Find the artifacts directory
-    artifacts_dir = Path("build") / args.target_triple / "release_artifacts"
+    artifacts_dir = Path("build") / args.target / "release_artifacts"
     if not artifacts_dir.exists():
         print(f"Error: Artifacts directory not found: {artifacts_dir}")
         sys.exit(1)

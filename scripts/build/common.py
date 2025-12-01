@@ -4,12 +4,11 @@ import hashlib
 import sys
 import json
 import platform
-import shutil
 import tarfile
 
 
 def get_os():
-    """Get OS name for target triple."""
+    """Get OS name for target."""
     system = platform.system()
     if system == "Windows":
         return "win"
@@ -22,7 +21,7 @@ def get_os():
 
 
 def get_arch():
-    """Get architecture for target triple."""
+    """Get architecture for target."""
     machine = platform.machine().lower()
     if machine in ("x86_64", "amd64"):
         return "x64"
@@ -102,13 +101,13 @@ def prepare_build(build_subdir, check_func):
     return project_root, build_dir
 
 
-def get_target_triple(get_platform_name_func):
-    """Get the target triple for the build."""
+def get_target(get_platform_name_func):
+    """Get the target for the build."""
     platform_name = get_platform_name_func()
     os_name = get_os()
     arch_name = get_arch()
-    target_triple = f"{os_name}-{arch_name}-{platform_name}"
-    return target_triple
+    target = f"{os_name}-{arch_name}-{platform_name}"
+    return target
 
 
 def build_project_cmake(build_dir, project_root, options):
@@ -117,7 +116,7 @@ def build_project_cmake(build_dir, project_root, options):
     build_cmake(build_dir)
 
 
-def collect_and_move_artifacts(build_dir, target_triple):
+def collect_and_move_artifacts(build_dir, target):
     """Collect release files, compress each to .tar.gz with maximum compression, move to release_artifacts with prefixed names, and create manifest."""
     release_files = get_release_files(build_dir)
 
@@ -129,7 +128,7 @@ def collect_and_move_artifacts(build_dir, target_triple):
     manifest = {"files": {}}
     for file_path in release_files:
         basename = os.path.basename(file_path)
-        new_name = f"{target_triple}-{basename}"
+        new_name = f"{target}-{basename}"
         tar_gz_name = f"{new_name}.tar.gz"
         tar_gz_path = os.path.join(release_artifacts_dir, tar_gz_name)
 
@@ -147,24 +146,24 @@ def collect_and_move_artifacts(build_dir, target_triple):
     return release_artifacts_dir, manifest
 
 
-def write_manifest(release_artifacts_dir, target_triple, manifest):
+def write_manifest(release_artifacts_dir, target, manifest):
     """Write the manifest to the release_artifacts directory and print it."""
-    manifest_path = os.path.join(release_artifacts_dir, f"{target_triple}-manifest.json")
+    manifest_path = os.path.join(release_artifacts_dir, f"{target}-manifest.json")
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=4)
 
-    print(f"Target triple: {target_triple}")
+    print(f"Target: {target}")
     print("Build manifest:")
     print(json.dumps(manifest, indent=4))
 
 
 def build_project(check_func, get_compile_flags_func, get_platform_name_func):
     """Common build logic for all backends."""
-    target_triple = get_target_triple(get_platform_name_func)
-    project_root, build_dir = prepare_build(target_triple, check_func)
+    target = get_target(get_platform_name_func)
+    project_root, build_dir = prepare_build(target, check_func)
     options = get_compile_flags_func()
     build_project_cmake(build_dir, project_root, options)
-    release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target_triple)
-    write_manifest(release_artifacts_dir, target_triple, manifest)
+    release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target)
+    write_manifest(release_artifacts_dir, target, manifest)
 
     print("Release artifacts are located in:", release_artifacts_dir)

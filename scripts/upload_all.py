@@ -5,22 +5,22 @@ from pathlib import Path
 from typing import List
 
 
-def find_target_triples() -> List[str]:
-    """Find all target triples with release_artifacts in the build folder."""
+def find_targets() -> List[str]:
+    """Find all targets with release_artifacts in the build folder."""
     build_dir = Path("build")
 
     if not build_dir.exists():
         print(f"Build directory not found: {build_dir}")
         return []
 
-    target_triples = []
+    targets = []
     for item in build_dir.iterdir():
         if item.is_dir():
             artifacts_dir = item / "release_artifacts"
             if artifacts_dir.exists() and artifacts_dir.is_dir():
-                target_triples.append(item.name)
+                targets.append(item.name)
 
-    return target_triples
+    return targets
 
 
 def main():
@@ -42,22 +42,22 @@ def main():
 
     args = parser.parse_args()
 
-    # Find all target triples
-    target_triples = find_target_triples()
-    if not target_triples:
-        print("No target triples with release_artifacts found in build/")
+    # Find all targets
+    targets = find_targets()
+    if not targets:
+        print("No targets with release_artifacts found in build/")
         sys.exit(1)
 
-    print(f"Found {len(target_triples)} target triples:")
-    for triple in target_triples:
-        print(f"  - {triple}")
+    print(f"Found {len(targets)} targets:")
+    for target in targets:
+        print(f"  - {target}")
 
-    # Process each target triple
-    for target_triple in target_triples:
-        print(f"\nUploading for {target_triple}...")
+    # Process each target
+    for target in targets:
+        print(f"\nUploading for {target}...")
 
         cmd = [sys.executable, "-m", "scripts.upload"]
-        cmd += ["--tag", args.tag, "--target-triple", target_triple, "--repo", args.repo]
+        cmd += ["--tag", args.tag, "--target", target, "--repo", args.repo]
 
         if args.dry_run:
             cmd.append("--dry-run")
@@ -65,7 +65,7 @@ def main():
             cmd.append("--force")
         result = subprocess.run(cmd)
         if result.returncode != 0:
-            print(f"Error uploading {target_triple}")
+            print(f"Error uploading {target}")
             sys.exit(1)
 
     print("\nAll uploads completed.")
