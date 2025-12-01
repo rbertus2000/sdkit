@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
-
 import sys
 import argparse
-import build_common
+from . import common
 
-import build_cuda  # noqa: F401
-import build_vulkan  # noqa: F401
-import build_cpu  # noqa: F401
-import build_metal  # noqa: F401
+from . import platform_cuda  # noqa: F401
+from . import platform_vulkan  # noqa: F401
+from . import platform_cpu  # noqa: F401
+from . import platform_metal  # noqa: F401
 
 
 def main():
@@ -19,12 +17,12 @@ def main():
 
     platform = args.platform
     try:
-        module = globals()[f"build_{platform}"]
+        module = globals()[f"platform_{platform}"]
     except KeyError:
-        print(f"Module build_{platform} not found.")
+        print(f"Module platform_{platform} not found.")
         sys.exit(1)
 
-    build_common.build_project(module.check_environment, module.get_compile_flags, module.get_platform_name)
+    common.build_project(module.check_environment, module.get_compile_flags, module.get_platform_name)
 
 
 if __name__ == "__main__":
