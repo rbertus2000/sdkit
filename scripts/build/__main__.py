@@ -22,7 +22,12 @@ def main():
         print(f"Module platform_{platform} not found.")
         sys.exit(1)
 
-    common.build_project(module.check_environment, module.get_compile_flags, module.get_platform_name)
+    check_func = module.check_environment
+    compile_flags_func = module.get_compile_flags
+    platform_name_func = module.get_platform_name
+    variants_func = getattr(module, "get_variants", None)
+
+    common.build_project(check_func, compile_flags_func, platform_name_func, variants_func)
 
 
 if __name__ == "__main__":

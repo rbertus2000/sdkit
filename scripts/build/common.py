@@ -101,12 +101,17 @@ def prepare_build(build_subdir, check_func):
     return project_root, build_dir
 
 
-def get_target(get_platform_name_func):
-    """Get the target for the build."""
+def get_target(get_platform_name_func, variant_name):
+    """Get the target for the build.
+
+    Args:
+        get_platform_name_func: Function that returns the platform name
+        variant: Optional variant name (e.g., 'sm86'). If None, uses 'any'
+    """
     platform_name = get_platform_name_func()
     os_name = get_os()
     arch_name = get_arch()
-    target = f"{os_name}-{arch_name}-{platform_name}"
+    target = f"{os_name}-{arch_name}-{platform_name}-{variant_name}"
     return target
 
 
@@ -157,13 +162,38 @@ def write_manifest(release_artifacts_dir, target, manifest):
     print(json.dumps(manifest, indent=4))
 
 
-def build_project(check_func, get_compile_flags_func, get_platform_name_func):
-    """Common build logic for all backends."""
-    target = get_target(get_platform_name_func)
-    project_root, build_dir = prepare_build(target, check_func)
-    options = get_compile_flags_func()
-    build_project_cmake(build_dir, project_root, options)
-    release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target)
-    write_manifest(release_artifacts_dir, target, manifest)
+def build_project(check_func, get_compile_flags_func, get_platform_name_func, get_variants_func=None):
+    """Common build logic for all backends.
 
-    print("Release artifacts are located in:", release_artifacts_dir)
+    Args:
+        check_func: Function to check if environment is ready
+        get_compile_flags_func: Function that returns base compile flags
+        get_platform_name_func: Function that returns platform name
+        get_variants_func: Function that returns list of variants
+    """
+    # Check if platform module has get_variants function
+    variants = []
+    if get_variants_func:
+        variants = get_variants_func()
+
+    # If no variants, use a single build with "any" variant
+    if not variants:
+        variants = [{"name": "any", "compile_flags": []}]
+
+    # Build for each variant
+    for variant in variants:
+        variant_name = variant["name"]
+        variant_compile_flags = variant.get("compile_flags", [])
+
+        target = get_target(get_platform_name_func, variant_name)
+        project_root, build_dir = prepare_build(target, check_func)
+
+        # Combine base compile flags with variant-specific flags
+        base_options = get_compile_flags_func()
+        options = base_options + variant_compile_flags
+
+        build_project_cmake(build_dir, project_root, options)
+        release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target)
+        write_manifest(release_artifacts_dir, target, manifest)
+
+        print("Release artifacts are located in:", release_artifacts_dir)

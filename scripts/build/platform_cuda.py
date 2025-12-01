@@ -17,7 +17,21 @@ def check_environment():
 
 def get_compile_flags():
     """Get compile flags for CUDA."""
-    return ["-DSD_CUDA=ON", "-DCMAKE_CUDA_ARCHITECTURES=90;89;86;80;75"]
+    return ["-DSD_CUDA=ON"]
+
+
+def get_variants():
+    """Get list of CUDA compute capability variants to build.
+
+    Returns a list of dicts, each with 'name' and 'compile_flags' keys.
+    """
+    return [
+        {"name": "sm75", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=75"]},
+        {"name": "sm80", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=80"]},
+        {"name": "sm86", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=86"]},
+        {"name": "sm89", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=89"]},
+        {"name": "sm90", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=90"]},
+    ]
 
 
 def get_platform_name():
