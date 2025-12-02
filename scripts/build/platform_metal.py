@@ -12,7 +12,7 @@ def check_environment():
 
 def get_compile_flags():
     """Get compile flags for Metal."""
-    return ["-DSD_METAL=ON"]
+    return ["-DSD_METAL=ON", "-DGGML_ACCELERATE=ON", "-DGGML_AVX2=ON", '-DCMAKE_OSX_ARCHITECTURES="arm64"']
 
 
 def get_platform_name():
