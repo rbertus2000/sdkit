@@ -16,7 +16,6 @@ BUILD_PLATFORMS = {
         "vulkan",
     ],
     "Darwin": [
-        "cpu",
         "metal",
     ],
 }
