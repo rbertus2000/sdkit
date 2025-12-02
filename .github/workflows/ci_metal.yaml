@@ -10,12 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          submodules: true
           ref: 'v3'
+
+      - name: Update submodules
+        run: git submodule update --init --recursive
 
       - name: Dependencies
         run: |
-          brew install cmake zip
+          brew install cmake
 
       - name: Install Python
         uses: actions/setup-python@v4
