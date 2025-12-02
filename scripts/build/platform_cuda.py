@@ -31,6 +31,8 @@ def get_variants():
         {"name": "sm86", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=86"]},
         {"name": "sm89", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=89"]},
         {"name": "sm90", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=90"]},
+        {"name": "sm100", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=100"]},
+        {"name": "sm120", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=120"]},
     ]
 
 
