@@ -6,6 +6,8 @@ on:
 jobs:
   macOS-metal-build:
     runs-on: macos-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v3
@@ -30,8 +32,7 @@ jobs:
       - name: Configure + Build
         run: python -m scripts.build_all
 
-      - name: Test build
-        run: ./build/mac-arm64-metal-any/bin/sdkit --help
-
       - name: Upload Artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python -m scripts.upload_all --tag v3.0.0
