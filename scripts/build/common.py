@@ -162,7 +162,9 @@ def write_manifest(release_artifacts_dir, target, manifest):
     print(json.dumps(manifest, indent=4))
 
 
-def build_project(check_func, get_compile_flags_func, get_platform_name_func, get_variants_func=None):
+def build_project(
+    check_func, get_compile_flags_func, get_platform_name_func, get_variants_func=None, get_manifest_data_func=None
+):
     """Common build logic for all backends.
 
     Args:
@@ -170,6 +172,7 @@ def build_project(check_func, get_compile_flags_func, get_platform_name_func, ge
         get_compile_flags_func: Function that returns base compile flags
         get_platform_name_func: Function that returns platform name
         get_variants_func: Function that returns list of variants
+        get_manifest_data_func: Optional function that returns additional manifest data
     """
     # Check if platform module has get_variants function
     variants = []
@@ -194,6 +197,12 @@ def build_project(check_func, get_compile_flags_func, get_platform_name_func, ge
 
         build_project_cmake(build_dir, project_root, options)
         release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target)
+
+        # Merge additional manifest data if available
+        if get_manifest_data_func:
+            additional_data = get_manifest_data_func()
+            manifest.update(additional_data)
+
         write_manifest(release_artifacts_dir, target, manifest)
 
         print("Release artifacts are located in:", release_artifacts_dir)

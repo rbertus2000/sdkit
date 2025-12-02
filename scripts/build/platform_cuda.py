@@ -37,15 +37,20 @@ def get_variants():
 
 
 def get_platform_name():
-    """Get platform name based on CUDA version."""
+    """Get platform name for CUDA."""
+    return "cuda"
+
+
+def get_manifest_data():
+    """Get additional manifest data for CUDA."""
     try:
         result = subprocess.run(["nvcc", "--version"], capture_output=True, text=True)
         if result.returncode == 0:
-            # Extract version from output like "Cuda compilation tools, release 12.1, V12.1.105"
-            match = re.search(r"release (\d+)\.(\d+)", result.stdout)
-            if match:
-                major = int(match.group(1))
-                return f"cu{major}"
+            # Parse version from output like "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2023 NVIDIA Corporation\nBuilt on Tue_Jun_13_19:16:58_PDT_2023\nCuda compilation tools, release 12.2, V12.2.91\nBuild cuda_12.2.r12.2/compiler.32965470_0"
+            for line in result.stdout.split("\n"):
+                if "release" in line:
+                    version = line.split("release ")[1].split(",")[0]
+                    return {"cuda_version": version}
     except:
         pass
-    return "cuda"  # fallback
+    return {}
