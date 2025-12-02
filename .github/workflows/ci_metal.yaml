@@ -1,0 +1,34 @@
+name: CI Metal
+
+on:
+  workflow_dispatch:
+
+jobs:
+  macOS-metal-build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Dependencies
+        run: |
+          brew install cmake zip
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Configure + Build
+        run: python -m scripts.build_all
+
+      - name: Test CPU build
+        run: build/mac-arm64-cpu/bin/sdkit --help
+
+      - name: Test Metal build
+        run: build/mac-arm64-metal/bin/sdkit --help
+
+      - name: Upload Artifact
+        run: python -m scripts.upload_all --tag v3.0.0
