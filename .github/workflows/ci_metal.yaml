@@ -24,6 +24,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install Python dependencies
+        run: pip install requests
+
       - name: Configure + Build
         run: python -m scripts.build_all
 
