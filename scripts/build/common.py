@@ -144,7 +144,12 @@ def collect_and_move_artifacts(build_dir, target, additional_files, target_any):
                 os.remove(tar_gz_path)
 
             sha256 = compute_sha256(file_path)
-            compress(file_path, tar_gz_path)
+
+            # don't compress if the file exists and the hash matches
+            if os.path.exists(tar_gz_path) and sha256 == compute_sha256(tar_gz_path):
+                print(f"Archive {tar_gz_name} already exists and is up to date. Skipping compression.")
+            else:
+                compress(file_path, tar_gz_path)
 
             uri = tar_gz_name
             manifest["files"][basename] = {"sha256": sha256, "uri": uri}
