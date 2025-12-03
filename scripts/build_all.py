@@ -7,12 +7,12 @@ OS_NAME = platform.system()
 BUILD_PLATFORMS = {
     "Windows": [
         "cpu",
-        # "cuda",
+        "cuda",
         "vulkan",
     ],
     "Linux": [
         "cpu",
-        # "cuda",
+        "cuda",
         "vulkan",
     ],
     "Darwin": [
