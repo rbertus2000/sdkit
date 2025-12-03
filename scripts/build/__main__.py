@@ -27,8 +27,11 @@ def main():
     platform_name_func = module.get_platform_name
     variants_func = getattr(module, "get_variants", None)
     manifest_data_func = getattr(module, "get_manifest_data", None)
+    additional_files_func = getattr(module, "get_additional_files", None)
 
-    common.build_project(check_func, compile_flags_func, platform_name_func, variants_func, manifest_data_func)
+    common.build_project(
+        check_func, compile_flags_func, platform_name_func, variants_func, manifest_data_func, additional_files_func
+    )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,9 @@
-import re
+import os
+import platform
 import subprocess
+
+LINUX_CUDA_LIBS = ["libcudart.so.12", "libcublas.so.12", "libcublasLt.so.12"]
+WIN_CUDA_LIBS = ["cudart64_12.dll", "cublas64_12.dll", "cublasLt64_12.dll"]
 
 
 def check_environment():
@@ -54,3 +58,34 @@ def get_manifest_data():
     except:
         pass
     return {}
+
+
+def get_additional_files():
+    "Returns physical paths to the CUDA libraries."
+
+    # Get the list of CUDA libraries based on OS
+    os_name = platform.system()
+    if os_name == "Linux":
+        cuda_libs = LINUX_CUDA_LIBS
+    elif os_name == "Windows":
+        cuda_libs = WIN_CUDA_LIBS
+    else:
+        return []
+
+    # Locate the libraries using PATH
+    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
+    found_libs = []
+
+    for lib in cuda_libs:
+        found = False
+        for dir_path in path_dirs:
+            lib_path = os.path.join(dir_path, lib)
+            if os.path.exists(lib_path):
+                found = True
+                found_libs.append(lib_path)
+                break
+
+        if not found:
+            raise FileNotFoundError(f"Required CUDA library {lib} not found in PATH.")
+
+    return found_libs

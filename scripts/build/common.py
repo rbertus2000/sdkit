@@ -121,7 +121,7 @@ def build_project_cmake(build_dir, project_root, options):
     build_cmake(build_dir)
 
 
-def collect_and_move_artifacts(build_dir, target):
+def collect_and_move_artifacts(build_dir, target, additional_files, target_any):
     """Collect release files, compress each to .tar.gz with maximum compression, move to release_artifacts with prefixed names, and create manifest."""
     release_files = get_release_files(build_dir)
 
@@ -131,22 +131,26 @@ def collect_and_move_artifacts(build_dir, target):
     print("Collecting and compressing release artifacts...")
 
     manifest = {"files": {}}
-    for file_path in release_files:
-        basename = os.path.basename(file_path)
-        new_name = f"{target}-{basename}"
-        tar_gz_name = f"{new_name}.tar.gz"
-        tar_gz_path = os.path.join(release_artifacts_dir, tar_gz_name)
 
-        # Delete the existing archive if it exists
-        if os.path.exists(tar_gz_path):
-            os.remove(tar_gz_path)
+    def add_to_manifest(files, target):
+        for file_path in files:
+            basename = os.path.basename(file_path)
+            new_name = f"{target}-{basename}"
+            tar_gz_name = f"{new_name}.tar.gz"
+            tar_gz_path = os.path.join(release_artifacts_dir, tar_gz_name)
 
-        sha256 = compute_sha256(file_path)
-        with tarfile.open(tar_gz_path, "w:gz", compresslevel=9) as tar:
-            tar.add(file_path, arcname=basename)
+            # Delete the existing archive if it exists
+            if os.path.exists(tar_gz_path):
+                os.remove(tar_gz_path)
 
-        uri = tar_gz_name
-        manifest["files"][basename] = {"sha256": sha256, "uri": uri}
+            sha256 = compute_sha256(file_path)
+            compress(file_path, tar_gz_path)
+
+            uri = tar_gz_name
+            manifest["files"][basename] = {"sha256": sha256, "uri": uri}
+
+    add_to_manifest(release_files, target)
+    add_to_manifest(additional_files, target_any)
 
     return release_artifacts_dir, manifest
 
@@ -163,7 +167,12 @@ def write_manifest(release_artifacts_dir, target, manifest):
 
 
 def build_project(
-    check_func, get_compile_flags_func, get_platform_name_func, get_variants_func=None, get_manifest_data_func=None
+    check_func,
+    get_compile_flags_func,
+    get_platform_name_func,
+    get_variants_func=None,
+    get_manifest_data_func=None,
+    get_additional_files_func=None,
 ):
     """Common build logic for all backends.
 
@@ -173,6 +182,7 @@ def build_project(
         get_platform_name_func: Function that returns platform name
         get_variants_func: Function that returns list of variants
         get_manifest_data_func: Optional function that returns additional manifest data
+        get_additional_files_func: Optional function that returns additional files
     """
     # Check if platform module has get_variants function
     variants = []
@@ -189,14 +199,22 @@ def build_project(
         variant_compile_flags = variant.get("compile_flags", [])
 
         target = get_target(get_platform_name_func, variant_name)
+        target_any = get_target(get_platform_name_func, "any")
         project_root, build_dir = prepare_build(target, check_func)
 
         # Combine base compile flags with variant-specific flags
         base_options = get_compile_flags_func()
         options = base_options + variant_compile_flags
 
+        # Resolve additional files if available
+        additional_files = get_additional_files_func() if get_additional_files_func else []
+        print(f"Additional files to include: {additional_files}")
+
+        # Build the project
         build_project_cmake(build_dir, project_root, options)
-        release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target)
+
+        # Collect and move artifacts
+        release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target, additional_files, target_any)
 
         # Merge additional manifest data if available
         if get_manifest_data_func:
@@ -206,3 +224,9 @@ def build_project(
         write_manifest(release_artifacts_dir, target, manifest)
 
         print("Release artifacts are located in:", release_artifacts_dir)
+
+
+def compress(input_file, output_file):
+    """Compress a file to .tar.gz with maximum compression."""
+    with tarfile.open(output_file, "w:gz", compresslevel=9) as tar:
+        tar.add(input_file, arcname=os.path.basename(input_file))
