@@ -183,6 +183,7 @@ def compare_and_upload(
 
     files = manifest.get("files", {})
     platform_name = artifacts_dir.parent.name
+    remote_manifest = None
 
     print(f"\nProcessing platform: {platform_name}")
     print(f"  Found {len(files)} files in manifest")
