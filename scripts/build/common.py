@@ -128,6 +128,13 @@ def collect_and_move_artifacts(build_dir, target, additional_files, target_any):
     release_artifacts_dir = os.path.join(build_dir, "release_artifacts")
     os.makedirs(release_artifacts_dir, exist_ok=True)
 
+    # read the existing manifest, if present
+    existing_manifest = {}
+    manifest_path = os.path.join(release_artifacts_dir, f"{target}-manifest.json")
+    if os.path.exists(manifest_path):
+        with open(manifest_path, "r") as f:
+            existing_manifest = json.load(f)
+
     print("Collecting and compressing release artifacts...")
 
     manifest = {"files": {}}
@@ -139,16 +146,16 @@ def collect_and_move_artifacts(build_dir, target, additional_files, target_any):
             tar_gz_name = f"{new_name}.tar.gz"
             tar_gz_path = os.path.join(release_artifacts_dir, tar_gz_name)
 
-            # Delete the existing archive if it exists
-            if os.path.exists(tar_gz_path):
-                os.remove(tar_gz_path)
-
             sha256 = compute_sha256(file_path)
 
             # don't compress if the file exists and the hash matches
-            if os.path.exists(tar_gz_path) and sha256 == compute_sha256(tar_gz_path):
+            curr_sha256 = existing_manifest.get("files", {}).get(basename, {}).get("sha256")
+            if os.path.exists(tar_gz_path) and sha256 == curr_sha256:
                 print(f"Archive {tar_gz_name} already exists and is up to date. Skipping compression.")
             else:
+                if os.path.exists(tar_gz_path):
+                    os.remove(tar_gz_path)
+
                 compress(file_path, tar_gz_path)
 
             uri = tar_gz_name
