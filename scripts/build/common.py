@@ -240,6 +240,5 @@ def build_project(
 
 def compress(input_file, output_file):
     """Compress a file to .tar.gz with maximum compression."""
-    input_file = os.path.realpath(input_file)
-    with tarfile.open(output_file, "w:gz", compresslevel=9) as tar:
+    with tarfile.open(output_file, "w:gz", compresslevel=9, dereference=True) as tar:
         tar.add(input_file, arcname=os.path.basename(input_file))
