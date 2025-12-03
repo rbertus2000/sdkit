@@ -58,11 +58,22 @@ class GitHubReleaseUploader:
 
     def get_release_assets(self, release_id: int) -> Dict[str, Dict]:
         """Get all assets for a release, indexed by filename."""
-        url = f"{self.api_base}/repos/{self.repo}/releases/{release_id}/assets"
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
+        assets = []
+        page = 1
+        per_page = 100  # Max allowed by GitHub API
 
-        assets = response.json()
+        while True:
+            url = f"{self.api_base}/repos/{self.repo}/releases/{release_id}/assets"
+            response = requests.get(url, headers=self.headers, params={"page": page, "per_page": per_page})
+            response.raise_for_status()
+
+            page_assets = response.json()
+            if not page_assets:
+                break
+
+            assets.extend(page_assets)
+            page += 1
+
         return {asset["name"]: asset for asset in assets}
 
     def delete_asset(self, asset_id: int, asset_name: str):
@@ -89,7 +100,10 @@ class GitHubReleaseUploader:
             file_data = f.read()
 
         headers = self.headers.copy()
-        headers["Content-Type"] = "application/gzip"
+        if asset_name.endswith(".json"):
+            headers["Content-Type"] = "application/json"
+        else:
+            headers["Content-Type"] = "application/gzip"
 
         params = {"name": asset_name}
         response = requests.post(upload_url, headers=headers, params=params, data=file_data)
