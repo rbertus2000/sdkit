@@ -23,23 +23,3 @@ def get_compile_flags():
 def get_platform_name():
     """Get platform name for Vulkan."""
     return "vulkan"
-
-
-def get_manifest_data():
-    """Get additional manifest data for Vulkan."""
-    try:
-        result = subprocess.run(["vulkaninfo"], capture_output=True, text=True)
-        if result.returncode == 0:
-            # Parse version from output like "Vulkan Instance Version: 1.3.268"
-            output = result.stdout + result.stderr
-            output = output[:400]
-            match = re.search(r"Vulkan Instance Version:\s*(\d+\.\d+\.\d+)", output)
-            if match:
-                version = match.group(1)
-                return {"vulkan_version": version}
-        else:
-            print(f"DEBUG: vulkaninfo failed with return code {result.returncode}")
-    except Exception as e:
-        print(f"Exception: {e}")
-        pass
-    return {}
