@@ -35,7 +35,7 @@ static void progress_callback(int step, int steps, float time, void* data) {
 }
 
 // Preview callback for stable-diffusion.cpp
-static void preview_callback(int step, int frame_count, sd_image_t* frames, bool is_noisy) {
+static void preview_callback(int step, int frame_count, sd_image_t* frames, bool is_noisy, void* data) {
     std::lock_guard<std::mutex> lock(g_callback_mutex);
     LOG_DEBUG("Preview callback: step %d, frame_count %d, is_noisy %d", step, frame_count, is_noisy);
     if (g_callback_data.task_state_manager && !g_callback_data.task_id.empty() && frames && frame_count > 0) {
@@ -145,10 +145,10 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     }
 
     if (live_previews_enabled) {
-        sd_set_preview_callback(preview_callback, PREVIEW_PROJ, 3, true, false);
+        sd_set_preview_callback(preview_callback, PREVIEW_PROJ, 3, true, false, nullptr);
     } else {
         // Clear any existing preview callback
-        sd_set_preview_callback(nullptr, PREVIEW_PROJ, 3, true, false);
+        sd_set_preview_callback(nullptr, PREVIEW_PROJ, 3, true, false, nullptr);
     }
 
     LOG_INFO("Generating %s: prompt='%s', size=%dx%d, steps=%d, seed=%lld", is_img2img ? "img2img" : "txt2img",
