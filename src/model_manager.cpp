@@ -149,8 +149,8 @@ void ModelManager::scanDirectoryInternal(const std::string& directory, ModelType
             ModelInfo info(lookup_name, full_path, type, file_size);
             found_models.push_back(info);
 
-            LOG_DEBUG("Found %s model: %s (%zu bytes)", getModelTypeString(type).c_str(), lookup_name.c_str(),
-                      file_size);
+            LOG_VERBOSE("Found %s model: %s (%zu bytes)", getModelTypeString(type).c_str(), lookup_name.c_str(),
+                        file_size);
         }
     } catch (const fs::filesystem_error& e) {
         LOG_ERROR("Error scanning directory %s: %s", directory.c_str(), e.what());
