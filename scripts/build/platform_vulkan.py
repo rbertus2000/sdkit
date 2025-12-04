@@ -18,7 +18,7 @@ def check_environment():
 
 def get_compile_flags():
     """Get compile flags for Vulkan."""
-    return ["-DSD_VULKAN=ON"]
+    return ["-G Ninja", "-DSD_VULKAN=ON"]
 
 
 def get_platform_name():
