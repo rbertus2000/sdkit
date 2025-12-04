@@ -182,7 +182,7 @@ void Server::setupRoutes() {
 
 void Server::run() {
     std::cout << "Starting server on port " << port_ << std::endl;
-    app_.port(port_).multithreaded().run();
+    app_.bindaddr("127.0.0.1").port(port_).multithreaded().run();
 }
 
 void Server::stop() {
