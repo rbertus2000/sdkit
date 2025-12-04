@@ -28,9 +28,16 @@ def main():
     variants_func = getattr(module, "get_variants", None)
     manifest_data_func = getattr(module, "get_manifest_data", None)
     additional_files_func = getattr(module, "get_additional_files", None)
+    env_func = getattr(module, "get_env", None)
 
     common.build_project(
-        check_func, compile_flags_func, platform_name_func, variants_func, manifest_data_func, additional_files_func
+        check_func,
+        compile_flags_func,
+        platform_name_func,
+        variants_func,
+        manifest_data_func,
+        additional_files_func,
+        env_func,
     )
 
 

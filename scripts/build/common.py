@@ -31,24 +31,24 @@ def get_arch():
         return machine
 
 
-def configure_cmake(build_dir, source_dir, options=[]):
+def configure_cmake(build_dir, source_dir, options=[], env=None):
     """Configure CMake with given options."""
     options = options + ["-DCMAKE_BUILD_TYPE=Release"]
     os.makedirs(build_dir, exist_ok=True)
     cmake_cmd = ["cmake", "-S", source_dir, "-B", build_dir] + options
     print(f"Configuring CMake: {' '.join(cmake_cmd)}")
 
-    result = subprocess.run(cmake_cmd)
+    result = subprocess.run(cmake_cmd, env=env)
     if result.returncode != 0:
         print("CMake configure failed")
         sys.exit(1)
 
 
-def build_cmake(build_dir):
+def build_cmake(build_dir, env=None):
     """Build the project using CMake."""
     cmake_cmd = ["cmake", "--build", build_dir, "--config", "Release"]
     print(f"Building: {' '.join(cmake_cmd)}")
-    result = subprocess.run(cmake_cmd)
+    result = subprocess.run(cmake_cmd, env=env)
     if result.returncode != 0:
         print("Build failed")
         sys.exit(1)
@@ -115,10 +115,10 @@ def get_target(get_platform_name_func, variant_name):
     return target
 
 
-def build_project_cmake(build_dir, project_root, options):
+def build_project_cmake(build_dir, project_root, options, env):
     """Configure and build the project using CMake."""
-    configure_cmake(build_dir, project_root, options)
-    build_cmake(build_dir)
+    configure_cmake(build_dir, project_root, options, env)
+    build_cmake(build_dir, env)
 
 
 def collect_and_move_artifacts(build_dir, target, additional_files, target_any):
@@ -185,6 +185,7 @@ def build_project(
     get_variants_func=None,
     get_manifest_data_func=None,
     get_additional_files_func=None,
+    get_env_func=None,
 ):
     """Common build logic for all backends.
 
@@ -195,6 +196,7 @@ def build_project(
         get_variants_func: Function that returns list of variants
         get_manifest_data_func: Optional function that returns additional manifest data
         get_additional_files_func: Optional function that returns additional files
+        get_env_func: Optional function that returns environment dict for cmake
     """
     # Check if platform module has get_variants function
     variants = []
@@ -204,6 +206,9 @@ def build_project(
     # If no variants, use a single build with "any" variant
     if not variants:
         variants = [{"name": "any", "compile_flags": []}]
+
+    # Get environment for cmake
+    env = get_env_func() if get_env_func else None
 
     # Build for each variant
     for variant in variants:
@@ -223,7 +228,7 @@ def build_project(
         print(f"Additional files to include: {additional_files}")
 
         # Build the project
-        build_project_cmake(build_dir, project_root, options)
+        build_project_cmake(build_dir, project_root, options, env)
 
         # Collect and move artifacts
         release_artifacts_dir, manifest = collect_and_move_artifacts(build_dir, target, additional_files, target_any)
