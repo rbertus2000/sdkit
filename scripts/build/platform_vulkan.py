@@ -1,4 +1,5 @@
-import re
+import os
+import platform
 import subprocess
 
 
@@ -23,3 +24,14 @@ def get_compile_flags():
 def get_platform_name():
     """Get platform name for Vulkan."""
     return "vulkan"
+
+
+def get_env():
+    """Get environment variables for Vulkan build."""
+    env = os.environ.copy()
+    if platform.system() == "Windows":
+        # Override this to prevent Vulkan from using cl.exe instead of clang.exe
+        env["PATH"] = env["PATH"].replace("Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64", "")
+        env["PATH"] += ";C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin"
+
+    return env
