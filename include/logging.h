@@ -8,13 +8,14 @@
 
 #include "stable-diffusion.h"
 
-enum class LogLevel { Debug, Info, Warning, Error };
+enum class LogLevel { Verbose, Debug, Info, Warning, Error };
 
 void log_message(LogLevel level, const char* format, ...);
 void set_log_level(LogLevel level);
 void set_log_level(const std::string& level_str);
 
 // Convenience macros for logging
+#define LOG_VERBOSE(...) log_message(LogLevel::Verbose, __VA_ARGS__)
 #define LOG_DEBUG(...) log_message(LogLevel::Debug, __VA_ARGS__)
 #define LOG_INFO(...) log_message(LogLevel::Info, __VA_ARGS__)
 #define LOG_WARNING(...) log_message(LogLevel::Warning, __VA_ARGS__)

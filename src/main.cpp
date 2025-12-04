@@ -37,7 +37,7 @@ void print_usage(const char* program_name) {
     std::cerr << std::endl;
     std::cerr << "Options:" << std::endl;
     std::cerr << "  --port <port>                      Server port (default: 8188)" << std::endl;
-    std::cerr << "  --log-level <level>                Log level: debug, info, warning, error (default: info)"
+    std::cerr << "  --log-level <level>                Log level: verbose, debug, info, warning, error (default: info)"
               << std::endl;
     std::cerr << "  --parent-pid <pid>                 Parent process PID" << std::endl;
     std::cerr << "  --ckpt-dir <path>                  Checkpoint models directory" << std::endl;

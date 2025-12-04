@@ -11,6 +11,8 @@ static std::mutex log_mutex;
 
 const char* log_level_to_string(LogLevel level) {
     switch (level) {
+        case LogLevel::Verbose:
+            return "VERBOSE";
         case LogLevel::Debug:
             return "DEBUG";
         case LogLevel::Info:
@@ -26,6 +28,8 @@ const char* log_level_to_string(LogLevel level) {
 
 const char* log_level_to_color(LogLevel level) {
     switch (level) {
+        case LogLevel::Verbose:
+            return "\033[35m";  // Magenta
         case LogLevel::Debug:
             return "\033[36m";  // Cyan
         case LogLevel::Info:
@@ -89,7 +93,9 @@ void set_log_level(LogLevel level) {
 void set_log_level(const std::string& level_str) {
     LogLevel level = LogLevel::Info;  // default
 
-    if (level_str == "debug") {
+    if (level_str == "verbose") {
+        level = LogLevel::Verbose;
+    } else if (level_str == "debug") {
         level = LogLevel::Debug;
     } else if (level_str == "info") {
         level = LogLevel::Info;
