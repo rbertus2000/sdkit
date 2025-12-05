@@ -40,11 +40,8 @@ def get_env(target_any):
     if target_any.startswith("win-arm64"):
         env = os.environ.copy()
 
-        print(env["PATH"])
         # Prevent ggml-vulkan's cmake from picking up MSVC tools
         env["PATH"] = re.sub(r"Tools\\MSVC\\[\d\.]+\\bin\\Hostx64\\x64", r"Tools\\Llvm\\x64\\bin", env["PATH"])
-
-        print("env", env["PATH"])
 
         return env
 
