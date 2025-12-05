@@ -1,16 +1,75 @@
+#include <atomic>
 #include <csignal>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#else
+#include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 #include "logging.h"
 #include "model_manager.h"
 #include "server.h"
 
 std::unique_ptr<Server> g_server;
+std::atomic<bool> g_should_exit(false);
+std::unique_ptr<std::thread> g_watchdog_thread;
+
+void parent_watchdog(int parent_pid) {
+    LOG_INFO("Starting parent process watchdog for PID %d", parent_pid);
+
+#ifdef _WIN32
+    // Windows: Use timed wait so we can check for exit signal
+    HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, parent_pid);
+    if (process == NULL) {
+        LOG_ERROR("Failed to open parent process (PID %d). Cannot monitor.", parent_pid);
+        return;
+    }
+
+    // Wait with timeout so we can check g_should_exit periodically
+    while (!g_should_exit.load()) {
+        DWORD result = WaitForSingleObject(process, 1000);  // 1 second timeout
+        if (result == WAIT_OBJECT_0) {
+            // Parent process exited
+            LOG_WARNING("Parent process (PID %d) is no longer running. Shutting down...", parent_pid);
+            if (g_server) {
+                g_server->stop();
+            }
+            g_should_exit.store(true);
+            break;
+        }
+        // WAIT_TIMEOUT means parent is still alive, continue loop
+    }
+    CloseHandle(process);
+#else
+    // Unix/Linux/Mac: Poll with kill(pid, 0) check
+    while (!g_should_exit.load()) {
+        if (kill(parent_pid, 0) != 0) {
+            LOG_WARNING("Parent process (PID %d) is no longer running. Shutting down...", parent_pid);
+            if (g_server) {
+                g_server->stop();
+            }
+            g_should_exit.store(true);
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+#endif
+
+    LOG_INFO("Parent process watchdog stopped");
+}
 
 void signal_handler(int signal) {
     std::cout << "\nReceived signal " << signal << ", shutting down..." << std::endl;
+    g_should_exit.store(true);
     if (g_server) {
         g_server->stop();
     }
@@ -160,13 +219,28 @@ int main(int argc, char* argv[]) {
     std::cout << "Model scanning complete." << std::endl;
     std::cout << std::endl;
 
+    // Start parent process watchdog if parent PID is specified
+    if (args.parent_pid > 0) {
+        g_watchdog_thread = std::make_unique<std::thread>(parent_watchdog, args.parent_pid);
+    }
+
     try {
         // Create and start the server
         g_server = std::make_unique<Server>(args.port, model_manager);
         g_server->run();
     } catch (const std::exception& e) {
         std::cerr << "Server error: " << e.what() << std::endl;
+        g_should_exit.store(true);
+        if (g_watchdog_thread && g_watchdog_thread->joinable()) {
+            g_watchdog_thread->join();
+        }
         return 1;
+    }
+
+    // Clean up watchdog thread
+    g_should_exit.store(true);
+    if (g_watchdog_thread && g_watchdog_thread->joinable()) {
+        g_watchdog_thread->join();
     }
 
     std::cout << "Server stopped." << std::endl;
