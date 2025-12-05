@@ -13,9 +13,15 @@ def main():
     parser.add_argument(
         "--platform", required=True, choices=["cuda", "vulkan", "cpu", "metal"], help="The platform to build for"
     )
+    parser.add_argument(
+        "--arch",
+        choices=["x64", "arm64"],
+        help="The architecture to build for (default: detected from current platform)",
+    )
     args = parser.parse_args()
 
     platform = args.platform
+    arch = args.arch
     try:
         module = globals()[f"platform_{platform}"]
     except KeyError:
@@ -38,6 +44,7 @@ def main():
         manifest_data_func,
         additional_files_func,
         env_func,
+        arch,
     )
 
 

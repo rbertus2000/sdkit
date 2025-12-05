@@ -101,16 +101,17 @@ def prepare_build(build_subdir, check_func):
     return project_root, build_dir
 
 
-def get_target(get_platform_name_func, variant_name):
+def get_target(get_platform_name_func, variant_name, arch=None):
     """Get the target for the build.
 
     Args:
         get_platform_name_func: Function that returns the platform name
         variant: Optional variant name (e.g., 'sm86'). If None, uses 'any'
+        arch: Optional architecture name. If None, uses detected arch
     """
     platform_name = get_platform_name_func()
     os_name = get_os()
-    arch_name = get_arch()
+    arch_name = arch if arch else get_arch()
     target = f"{os_name}-{arch_name}-{platform_name}-{variant_name}"
     return target
 
@@ -186,6 +187,7 @@ def build_project(
     get_manifest_data_func=None,
     get_additional_files_func=None,
     get_env_func=None,
+    arch=None,
 ):
     """Common build logic for all backends.
 
@@ -197,6 +199,7 @@ def build_project(
         get_manifest_data_func: Optional function that returns additional manifest data
         get_additional_files_func: Optional function that returns additional files
         get_env_func: Optional function that returns environment dict for cmake
+        arch: Optional architecture to build for
     """
     # Check if platform module has get_variants function
     variants = []
@@ -215,8 +218,8 @@ def build_project(
         variant_name = variant["name"]
         variant_compile_flags = variant.get("compile_flags", [])
 
-        target = get_target(get_platform_name_func, variant_name)
-        target_any = get_target(get_platform_name_func, "any")
+        target = get_target(get_platform_name_func, variant_name, arch)
+        target_any = get_target(get_platform_name_func, "any", arch)
         project_root, build_dir = prepare_build(target, check_func)
 
         # Combine base compile flags with variant-specific flags
