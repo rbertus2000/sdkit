@@ -117,32 +117,90 @@ void ModelManager::scanDirectoryInternal(const std::string& directory, ModelType
     }
 
     std::vector<ModelInfo> found_models;
+    int processed_count = 0;
 
     try {
-        for (const auto& entry : fs::recursive_directory_iterator(directory)) {
-            if (!entry.is_regular_file()) {
+        // Use error_code overload to prevent exceptions from blocking iteration
+        std::error_code ec;
+        fs::recursive_directory_iterator it(directory, fs::directory_options::skip_permission_denied, ec);
+
+        if (ec) {
+            LOG_ERROR("Cannot create directory iterator for %s: %s", directory.c_str(), ec.message().c_str());
+            return;
+        }
+
+        for (const auto& entry : it) {
+            processed_count++;
+
+            // Log progress every 50 files for user feedback
+            if (processed_count % 50 == 0) {
+                LOG_INFO("Scanning %s directory: processed %d files...", getModelTypeString(type).c_str(),
+                         processed_count);
+            }
+
+            // Skip non-regular files with error handling
+            std::error_code file_ec;
+            bool is_regular = entry.is_regular_file(file_ec);
+            if (file_ec || !is_regular) {
+                if (file_ec) {
+                    LOG_VERBOSE("Skipping entry (cannot determine file type): %s", entry.path().string().c_str());
+                }
                 continue;
             }
 
-            std::string filename = entry.path().filename().string();
+            // Try to get the path strings - use generic_string() for better Unicode support
+            std::string filename;
+            std::string full_path;
+            try {
+                // generic_string() handles Unicode better than string() on Windows
+                filename = entry.path().filename().generic_string();
+                full_path = entry.path().generic_string();
+            } catch (const std::exception& e) {
+                // Fallback to regular string() if generic_string() fails
+                try {
+                    filename = entry.path().filename().string();
+                    full_path = entry.path().string();
+                    LOG_VERBOSE("Using string() for path: %s", filename.c_str());
+                } catch (...) {
+                    LOG_WARNING("Cannot convert path to string, skipping file: %s", e.what());
+                    continue;
+                }
+            }
+
             if (!isValidModelFile(filename)) {
                 continue;
             }
 
-            std::string full_path = entry.path().string();
-            size_t file_size = fs::file_size(entry.path());
+            // Get file size with error handling - don't let this block the scan
+            size_t file_size = 0;
+            try {
+                file_size = fs::file_size(entry.path(), file_ec);
+                if (file_ec) {
+                    LOG_VERBOSE("Cannot get file size for %s: %s, using 0", filename.c_str(),
+                                file_ec.message().c_str());
+                    file_size = 0;
+                }
+            } catch (const std::exception& e) {
+                LOG_VERBOSE("Cannot get file size for %s: %s, using 0", filename.c_str(), e.what());
+                file_size = 0;
+            }
 
             // Determine the lookup name based on model type
             std::string lookup_name;
-            if (type == ModelType::CHECKPOINT) {
-                // For stable-diffusion models: use relative path from directory with extension
-                fs::path relative = fs::relative(entry.path(), directory);
-                lookup_name = relative.string();
-            } else if (type == ModelType::CONTROLNET || type == ModelType::EMBEDDINGS || type == ModelType::LORA) {
-                // For controlnet, embeddings, lora: use filename without extension
-                lookup_name = entry.path().stem().string();
-            } else {
-                // For other model types: use filename as-is
+            try {
+                if (type == ModelType::CHECKPOINT) {
+                    // For stable-diffusion models: use relative path from directory with extension
+                    fs::path relative = fs::relative(entry.path(), directory);
+                    lookup_name = relative.string();
+                } else if (type == ModelType::CONTROLNET || type == ModelType::EMBEDDINGS || type == ModelType::LORA) {
+                    // For controlnet, embeddings, lora: use filename without extension
+                    lookup_name = entry.path().stem().string();
+                } else {
+                    // For other model types: use filename as-is
+                    lookup_name = filename;
+                }
+            } catch (const std::exception& e) {
+                LOG_WARNING("Cannot process path for %s: %s, using filename", filename.c_str(), e.what());
                 lookup_name = filename;
             }
 
@@ -154,6 +212,9 @@ void ModelManager::scanDirectoryInternal(const std::string& directory, ModelType
         }
     } catch (const fs::filesystem_error& e) {
         LOG_ERROR("Error scanning directory %s: %s", directory.c_str(), e.what());
+        return;
+    } catch (const std::exception& e) {
+        LOG_ERROR("Unexpected error scanning directory %s: %s", directory.c_str(), e.what());
         return;
     }
 
