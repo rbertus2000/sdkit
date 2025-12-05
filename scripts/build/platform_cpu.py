@@ -6,7 +6,7 @@ def check_environment():
 
 def get_compile_flags():
     """Get compile flags for CPU."""
-    return ["-G Ninja"]
+    return []
 
 
 def get_platform_name():
