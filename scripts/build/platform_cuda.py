@@ -19,7 +19,7 @@ def check_environment():
     return False
 
 
-def get_compile_flags():
+def get_compile_flags(target_any):
     """Get compile flags for CUDA."""
     return ["-DSD_CUDA=ON"]
 

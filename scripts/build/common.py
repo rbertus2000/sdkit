@@ -210,8 +210,11 @@ def build_project(
     if not variants:
         variants = [{"name": "any", "compile_flags": []}]
 
+    # Get target for "any" variant to use for additional files
+    target_any = get_target(get_platform_name_func, "any", arch)
+
     # Get environment for cmake
-    env = get_env_func() if get_env_func else None
+    env = get_env_func(target_any) if get_env_func else None
 
     # Build for each variant
     for variant in variants:
@@ -219,11 +222,10 @@ def build_project(
         variant_compile_flags = variant.get("compile_flags", [])
 
         target = get_target(get_platform_name_func, variant_name, arch)
-        target_any = get_target(get_platform_name_func, "any", arch)
         project_root, build_dir = prepare_build(target, check_func)
 
         # Combine base compile flags with variant-specific flags
-        base_options = get_compile_flags_func()
+        base_options = get_compile_flags_func(target_any)
         options = base_options + variant_compile_flags
 
         # Resolve additional files if available

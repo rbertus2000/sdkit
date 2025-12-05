@@ -10,7 +10,7 @@ def check_environment():
     return False
 
 
-def get_compile_flags():
+def get_compile_flags(target_any):
     """Get compile flags for Metal."""
     return ["-DSD_METAL=ON", "-DGGML_ACCELERATE=ON", "-DGGML_AVX2=ON", "-DCMAKE_OSX_ARCHITECTURES=arm64"]
 

@@ -6,17 +6,18 @@ OS_NAME = platform.system()
 
 BUILD_PLATFORMS = {
     "Windows": [
-        "cpu",
-        "cuda",
-        "vulkan",
+        ("cpu", "x64"),
+        ("cuda", "x64"),
+        ("vulkan", "x64"),
+        ("vulkan", "arm64"),
     ],
     "Linux": [
-        "cpu",
-        "cuda",
-        "vulkan",
+        ("cpu", "x64"),
+        ("cuda", "x64"),
+        ("vulkan", "x64"),
     ],
     "Darwin": [
-        "metal",
+        ("metal", "arm64"),
     ],
 }
 
@@ -26,8 +27,8 @@ print(f"Platforms to build for: {platforms}")
 
 
 def main():
-    for platform_name in platforms:
-        cmd = [sys.executable, "-m", "scripts.build", "--platform", platform_name]
+    for platform_name, arch in platforms:
+        cmd = [sys.executable, "-m", "scripts.build", "--platform", platform_name, "--arch", arch]
 
         print(f"Running build script: {cmd}")
         result = subprocess.run(cmd)

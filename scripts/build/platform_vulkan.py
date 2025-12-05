@@ -1,5 +1,5 @@
 import os
-import platform
+import re
 import subprocess
 
 
@@ -16,11 +16,36 @@ def check_environment():
     return False
 
 
-def get_compile_flags():
+def get_compile_flags(target_any):
     """Get compile flags for Vulkan."""
-    return ["-DSD_VULKAN=ON"]
+    flags = ["-DSD_VULKAN=ON"]
+
+    if target_any.startswith("win-arm64"):
+        vulkan_sdk_path = os.environ["VULKAN_SDK"].replace("\\", "/")
+
+        flags.append("-G Ninja")
+        flags.append("-DCMAKE_TOOLCHAIN_FILE=cmake/arm64-windows-llvm.cmake")
+        flags.append(f"-DVulkan_LIBRARY={vulkan_sdk_path}/Lib-ARM64/vulkan-1.lib")
+
+    return flags
 
 
 def get_platform_name():
     """Get platform name for Vulkan."""
     return "vulkan"
+
+
+def get_env(target_any):
+    """Get environment variables for Vulkan build."""
+    if target_any.startswith("win-arm64"):
+        env = os.environ.copy()
+
+        print(env["PATH"])
+        # Prevent ggml-vulkan's cmake from picking up MSVC tools
+        env["PATH"] = re.sub(r"Tools\\MSVC\\[\d\.]+\\bin\\Hostx64\\x64", r"Tools\\Llvm\\x64\\bin", env["PATH"])
+
+        print("env", env["PATH"])
+
+        return env
+
+    return None

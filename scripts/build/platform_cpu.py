@@ -4,7 +4,7 @@ def check_environment():
     return True
 
 
-def get_compile_flags():
+def get_compile_flags(target_any):
     """Get compile flags for CPU."""
     return []
 
