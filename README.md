@@ -5,4 +5,4 @@
 
 WORK IN PROGRESS on v3 - uses [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) under-the-hood.
 
-If you wish to integrate this into your commercial project or use it on your inference servers commercially, please feel free to contact me (cmdr2 on Discord, or dev@cmdr2.org).
+If you wish to integrate this into your commercial project or use it on your inference servers, please feel free to contact me (cmdr2 on Discord, or dev@cmdr2.org).
