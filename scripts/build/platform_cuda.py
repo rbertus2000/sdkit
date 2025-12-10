@@ -30,6 +30,7 @@ def get_variants():
     Returns a list of dicts, each with 'name' and 'compile_flags' keys.
     """
     return [
+        {"name": "sm60", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=60"]},
         {"name": "sm75", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=75"]},
         {"name": "sm80", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=80"]},
         {"name": "sm86", "compile_flags": ["-DCMAKE_CUDA_ARCHITECTURES=86"]},
