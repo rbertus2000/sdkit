@@ -5,6 +5,9 @@ project(sdkit)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Option to build tools
+option(SDKIT_BUILD_TOOLS "Build sdkit tools" OFF)
+
 # Define output directories for all build artifacts
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -78,3 +81,8 @@ add_custom_command(TARGET sdkit POST_BUILD
         $<TARGET_FILE:ggml>
         $<TARGET_FILE_DIR:sdkit>
 )
+
+# Build tools if enabled
+if(SDKIT_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
