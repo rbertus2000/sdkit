@@ -1,3 +1,10 @@
+"""Metal platform build configuration.
+
+IMPORTANT: GGML_NATIVE is disabled to ensure CPU fallback code is portable.
+For Apple Silicon, this uses ARM64 architecture flags which are already optimized.
+The GGML_ACCELERATE flag enables Apple's Accelerate framework for optimized CPU operations.
+"""
+
 import platform
 
 
@@ -12,7 +19,9 @@ def check_environment():
 
 def get_compile_flags(target_any):
     """Get compile flags for Metal."""
-    return ["-DSD_METAL=ON", "-DGGML_ACCELERATE=ON", "-DGGML_AVX2=ON", "-DCMAKE_OSX_ARCHITECTURES=arm64"]
+    # Disable GGML_NATIVE and use explicit ARM64 architecture
+    # GGML_ACCELERATE enables Apple's optimized framework
+    return ["-DSD_METAL=ON", "-DGGML_NATIVE=OFF", "-DGGML_ACCELERATE=ON", "-DCMAKE_OSX_ARCHITECTURES=arm64"]
 
 
 def get_platform_name():
