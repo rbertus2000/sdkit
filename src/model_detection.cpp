@@ -75,10 +75,19 @@ static std::vector<std::string> getGGUFTensorKeys(const std::string& model_path)
 }
 
 // Helper function to determine model type from tensor keys
-// Returns: "clip_l", "clip_g", "t5xxl", or "vae" (default)
+// Returns: "clip_l", "clip_g", "t5xxl", "llm", or "vae" (default)
 std::string inferModelTypeFromTensorKeys(const std::vector<std::string>& tensor_keys) {
     if (tensor_keys.empty()) {
         return "vae";  // Default to VAE if we can't determine
+    }
+
+    // Check for LLM model indicators
+    for (const std::string& name : tensor_keys) {
+        if (name.find("blk.35.attn_k.weight") != std::string::npos ||
+            name.find("model.layers.35.post_attention_layernorm.weight") != std::string::npos) {
+            LOG_DEBUG("Detected LLM model");
+            return "llm";
+        }
     }
 
     bool has_text_model = false;
@@ -209,7 +218,7 @@ std::vector<std::string> extractTensorKeys(const std::string& model_path, const 
 
 // Helper function to inspect a model file and determine its type
 // Supports both GGUF and safetensors formats
-// Returns: "vae", "clip_l", "clip_g", "t5xxl", or "unknown"
+// Returns: "vae", "clip_l", "clip_g", "t5xxl", "llm", or "unknown"
 std::string inspectModelType(const std::string& model_path) {
     // First, detect the file type
     std::string format = detectModelFormat(model_path);

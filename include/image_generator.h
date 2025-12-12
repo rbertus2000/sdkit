@@ -101,6 +101,7 @@ class ImageGenerator {
     std::string current_clip_l_path_;
     std::string current_clip_g_path_;
     std::string current_t5xxl_path_;
+    std::string current_llm_path_;
     std::string current_taesd_path_;
     std::string current_lora_model_dir_;
     std::string current_embeddings_dir_;

@@ -400,6 +400,7 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     std::string clip_l_path_str;
     std::string clip_g_path_str;
     std::string t5xxl_path_str;
+    std::string llm_path_str;
 
     if (options.has("forge_additional_modules")) {
         auto modules = options["forge_additional_modules"];
@@ -423,6 +424,8 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
                     clip_g_path_str = module_full_path;
                 } else if (model_type == "t5xxl") {
                     t5xxl_path_str = module_full_path;
+                } else if (model_type == "llm") {
+                    llm_path_str = module_full_path;
                 } else {
                     LOG_WARNING("Unknown model type for: %s (detected as: %s)", module_full_path.c_str(),
                                 model_type.c_str());
@@ -437,7 +440,7 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     bool needs_reload = !initialized_ || !sd_ctx_ || model_path != current_model_path_ ||
                         vae_path_str != current_vae_path_ || clip_l_path_str != current_clip_l_path_ ||
                         clip_g_path_str != current_clip_g_path_ || t5xxl_path_str != current_t5xxl_path_ ||
-                        controlnet_path_str != current_controlnet_path_;
+                        llm_path_str != current_llm_path_ || controlnet_path_str != current_controlnet_path_;
 
     if (!needs_reload) {
         LOG_DEBUG("Model already loaded: %s", model_path.c_str());
@@ -471,7 +474,8 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     params.free_params_immediately = false;
 
     // Check if we have additional modules (VAE, CLIP, etc.)
-    bool has_additional_modules = !clip_l_path_str.empty() || !clip_g_path_str.empty() || !t5xxl_path_str.empty();
+    bool has_additional_modules =
+        !clip_l_path_str.empty() || !clip_g_path_str.empty() || !t5xxl_path_str.empty() || !llm_path_str.empty();
 
     if (has_additional_modules) {
         LOG_INFO("Using additional modules - loading diffusion model separately");
@@ -488,6 +492,7 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     params.clip_l_path = clip_l_path_str.empty() ? nullptr : clip_l_path_str.c_str();
     params.clip_g_path = clip_g_path_str.empty() ? nullptr : clip_g_path_str.c_str();
     params.t5xxl_path = t5xxl_path_str.empty() ? nullptr : t5xxl_path_str.c_str();
+    params.llm_path = llm_path_str.empty() ? nullptr : llm_path_str.c_str();
     params.taesd_path = nullptr;
     params.control_net_path = controlnet_path_str.empty() ? nullptr : controlnet_path_str.c_str();
     params.lora_model_dir = lora_dir_str.empty() ? nullptr : lora_dir_str.c_str();
@@ -506,6 +511,9 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     }
     if (!t5xxl_path_str.empty()) {
         LOG_INFO("Loading T5XXL model: %s", t5xxl_path_str.c_str());
+    }
+    if (!llm_path_str.empty()) {
+        LOG_INFO("Loading LLM model: %s", llm_path_str.c_str());
     }
     if (!controlnet_path_str.empty()) {
         LOG_INFO("Loading ControlNet model: %s", controlnet_path_str.c_str());
@@ -530,6 +538,7 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     current_clip_l_path_ = clip_l_path_str;
     current_clip_g_path_ = clip_g_path_str;
     current_t5xxl_path_ = t5xxl_path_str;
+    current_llm_path_ = llm_path_str;
     current_taesd_path_ = "";
     current_lora_model_dir_ = lora_dir_str;
     current_embeddings_dir_ = "";
