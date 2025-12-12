@@ -12,6 +12,7 @@
 #include "image_utils.h"
 #include "logging.h"
 #include "model_detection.h"
+#include "server.h"
 
 // Global callback data structure
 struct CallbackData {
@@ -72,14 +73,19 @@ static void preview_callback(int step, int frame_count, sd_image_t* frames, bool
 
 ImageGenerator::ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
                                std::shared_ptr<OptionsManager> options_manager,
-                               std::shared_ptr<ModelManager> model_manager, std::shared_ptr<ImageFilters> image_filters)
+                               std::shared_ptr<ModelManager> model_manager, std::shared_ptr<ImageFilters> image_filters,
+                               const ServerParams& server_params)
     : sd_ctx_(nullptr),
       task_state_manager_(task_state_manager),
       options_manager_(options_manager),
       model_manager_(model_manager),
       image_filters_(image_filters),
       initialized_(false),
-      interrupted_(false) {
+      interrupted_(false),
+      vae_on_cpu_(server_params.vae_on_cpu),
+      vae_tiling_(server_params.vae_tiling),
+      offload_to_cpu_(server_params.offload_to_cpu),
+      diffusion_fa_(server_params.diffusion_fa) {
     LOG_INFO("ImageGenerator created");
 }
 
@@ -189,6 +195,17 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
         gen_params.control_image = control_image;
         gen_params.control_strength = params.control_strength;
         LOG_INFO("Using ControlNet with strength %.2f", params.control_strength);
+    }
+
+    // VAE tiling (if enabled via CLI)
+    if (vae_tiling_) {
+        gen_params.vae_tiling_params.enabled = true;
+        gen_params.vae_tiling_params.tile_size_x = 512;  // Default tile size
+        gen_params.vae_tiling_params.tile_size_y = 512;
+        gen_params.vae_tiling_params.target_overlap = 0.5f;
+        gen_params.vae_tiling_params.rel_size_x = 1.0f;
+        gen_params.vae_tiling_params.rel_size_y = 1.0f;
+        LOG_INFO("VAE tiling enabled with tile size 512x512");
     }
 
     // Generate images
@@ -524,6 +541,21 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
 
     // Set RNG type
     params.rng_type = CUDA_RNG;
+
+    // Apply CLI parameters for SD context
+    params.keep_vae_on_cpu = vae_on_cpu_;
+    params.offload_params_to_cpu = offload_to_cpu_;
+    params.diffusion_flash_attn = diffusion_fa_;
+
+    if (vae_on_cpu_) {
+        LOG_INFO("VAE will be kept on CPU");
+    }
+    if (offload_to_cpu_) {
+        LOG_INFO("Parameters will be offloaded to CPU");
+    }
+    if (diffusion_fa_) {
+        LOG_INFO("Diffusion flash attention enabled");
+    }
 
     // Create SD context
     sd_ctx_ = new_sd_ctx(&params);

@@ -12,6 +12,9 @@
 #include "stable-diffusion.h"
 #include "task_state.h"
 
+// Forward declaration
+struct ServerParams;
+
 struct ImageGenerationParams {
     std::string prompt;
     std::string negative_prompt;
@@ -45,7 +48,7 @@ class ImageGenerator {
    public:
     ImageGenerator(std::shared_ptr<TaskStateManager> task_state_manager,
                    std::shared_ptr<OptionsManager> options_manager, std::shared_ptr<ModelManager> model_manager,
-                   std::shared_ptr<ImageFilters> image_filters);
+                   std::shared_ptr<ImageFilters> image_filters, const ServerParams& server_params);
     ~ImageGenerator();
 
     // Check if initialized
@@ -106,6 +109,12 @@ class ImageGenerator {
     std::string current_lora_model_dir_;
     std::string current_embeddings_dir_;
     std::string current_controlnet_path_;
+
+    // SD context parameters from CLI
+    bool vae_on_cpu_;
+    bool vae_tiling_;
+    bool offload_to_cpu_;
+    bool diffusion_fa_;
 };
 
 #endif  // __IMAGE_GENERATOR_H__

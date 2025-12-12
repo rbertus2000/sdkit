@@ -89,6 +89,10 @@ struct CommandLineArgs {
     std::string embeddings_dir;
     std::string controlnet_dir;
     std::string text_encoder_dir;
+    bool vae_on_cpu = false;
+    bool vae_tiling = false;
+    bool offload_to_cpu = false;
+    bool diffusion_fa = false;
 };
 
 void print_usage(const char* program_name) {
@@ -109,6 +113,10 @@ void print_usage(const char* program_name) {
     std::cerr << "  --embeddings-dir <path>            Embeddings directory" << std::endl;
     std::cerr << "  --controlnet-dir <path>            ControlNet models directory" << std::endl;
     std::cerr << "  --text-encoder-dir <path>          Text encoder models directory" << std::endl;
+    std::cerr << "  --vae-on-cpu                       Keep VAE on CPU (default: false)" << std::endl;
+    std::cerr << "  --vae-tiling                       Enable VAE tiling (default: false)" << std::endl;
+    std::cerr << "  --offload-to-cpu                   Offload parameters to CPU (default: false)" << std::endl;
+    std::cerr << "  --diffusion-fa                     Enable diffusion flash attention (default: false)" << std::endl;
 }
 
 CommandLineArgs parse_args(int argc, char* argv[]) {
@@ -155,6 +163,14 @@ CommandLineArgs parse_args(int argc, char* argv[]) {
             args.controlnet_dir = argv[++i];
         } else if (arg == "--text-encoder-dir" && i + 1 < argc) {
             args.text_encoder_dir = argv[++i];
+        } else if (arg == "--vae-on-cpu") {
+            args.vae_on_cpu = true;
+        } else if (arg == "--vae-tiling") {
+            args.vae_tiling = true;
+        } else if (arg == "--offload-to-cpu") {
+            args.offload_to_cpu = true;
+        } else if (arg == "--diffusion-fa") {
+            args.diffusion_fa = true;
         } else if (arg == "--help" || arg == "-h") {
             print_usage(argv[0]);
             exit(0);
@@ -225,8 +241,17 @@ int main(int argc, char* argv[]) {
     }
 
     try {
+        // Create server parameters
+        ServerParams server_params;
+        server_params.port = args.port;
+        server_params.model_manager = model_manager;
+        server_params.vae_on_cpu = args.vae_on_cpu;
+        server_params.vae_tiling = args.vae_tiling;
+        server_params.offload_to_cpu = args.offload_to_cpu;
+        server_params.diffusion_fa = args.diffusion_fa;
+
         // Create and start the server
-        g_server = std::make_unique<Server>(args.port, model_manager);
+        g_server = std::make_unique<Server>(server_params);
         g_server->run();
     } catch (const std::exception& e) {
         std::cerr << "Server error: " << e.what() << std::endl;

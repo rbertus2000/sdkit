@@ -107,8 +107,8 @@ static int round_to_nearest_multiple_of_64(int dimension) {
     return std::round(static_cast<double>(dimension) / 64.0) * 64;
 }
 
-Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
-    : port_(port), model_manager_(model_manager), should_stop_(false) {
+Server::Server(const ServerParams& params)
+    : params_(params), port_(params.port), model_manager_(params.model_manager), should_stop_(false) {
     // Set up custom logger to filter out unnecessary requests
     static FilteredLogHandler filtered_handler;
     crow::logger::setHandler(&filtered_handler);
@@ -121,7 +121,7 @@ Server::Server(int port, std::shared_ptr<ModelManager> model_manager)
 
     // Create ImageGenerator with shared task state manager and model manager
     image_generator_ =
-        std::make_unique<ImageGenerator>(task_state_manager_, options_manager_, model_manager_, image_filters_);
+        std::make_unique<ImageGenerator>(task_state_manager_, options_manager_, model_manager_, image_filters_, params);
 
     options_manager_->load();
 

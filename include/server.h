@@ -11,9 +11,18 @@
 #include "options_manager.h"
 #include "task_state.h"
 
+struct ServerParams {
+    int port = 8188;
+    std::shared_ptr<ModelManager> model_manager;
+    bool vae_on_cpu = false;
+    bool vae_tiling = false;
+    bool offload_to_cpu = false;
+    bool diffusion_fa = false;
+};
+
 class Server {
    public:
-    Server(int port, std::shared_ptr<ModelManager> model_manager);
+    Server(const ServerParams& params);
     ~Server();
 
     void run();
@@ -38,6 +47,7 @@ class Server {
     // Helper methods
     crow::response generateImage(const crow::json::rvalue& json_body, bool is_img2img);
 
+    ServerParams params_;
     int port_;
     crow::SimpleApp app_;
     std::shared_ptr<OptionsManager> options_manager_;
