@@ -188,6 +188,7 @@ def build_project(
     get_additional_files_func=None,
     get_env_func=None,
     arch=None,
+    variant=None,
 ):
     """Common build logic for all backends.
 
@@ -209,6 +210,13 @@ def build_project(
     # If no variants, use a single build with "any" variant
     if not variants:
         variants = [{"name": "any", "compile_flags": []}]
+
+    if variant is not None:
+        # Filter variants to only include the specified one
+        variants = [v for v in variants if v["name"] == variant]
+        if not variants:
+            print(f"Variant '{variant}' not found.")
+            sys.exit(1)
 
     # Get target for "any" variant to use for additional files
     target_any = get_target(get_platform_name_func, "any", arch)

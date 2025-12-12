@@ -18,10 +18,16 @@ def main():
         choices=["x64", "arm64"],
         help="The architecture to build for (default: detected from current platform)",
     )
+    parser.add_argument(
+        "--variant",
+        default=None,
+        help="The variant to build for (e.g., 'sm86' for CUDA). If not specified, the default variant for the platform will be used.",
+    )
     args = parser.parse_args()
 
     platform = args.platform
     arch = args.arch
+    variant = args.variant
     try:
         module = globals()[f"platform_{platform}"]
     except KeyError:
@@ -45,6 +51,7 @@ def main():
         additional_files_func,
         env_func,
         arch,
+        variant,
     )
 
 
