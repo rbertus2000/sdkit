@@ -18,6 +18,8 @@ struct ServerParams {
     bool vae_tiling = false;
     bool offload_to_cpu = false;
     bool diffusion_fa = false;
+    bool control_net_cpu = false;
+    bool clip_on_cpu = false;
 };
 
 class Server {

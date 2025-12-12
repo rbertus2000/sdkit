@@ -93,6 +93,8 @@ struct CommandLineArgs {
     bool vae_tiling = false;
     bool offload_to_cpu = false;
     bool diffusion_fa = false;
+    bool control_net_cpu = false;
+    bool clip_on_cpu = false;
 };
 
 void print_usage(const char* program_name) {
@@ -117,6 +119,8 @@ void print_usage(const char* program_name) {
     std::cerr << "  --vae-tiling                       Enable VAE tiling (default: false)" << std::endl;
     std::cerr << "  --offload-to-cpu                   Offload parameters to CPU (default: false)" << std::endl;
     std::cerr << "  --diffusion-fa                     Enable diffusion flash attention (default: false)" << std::endl;
+    std::cerr << "  --control-net-cpu                  Keep ControlNet on CPU (default: false)" << std::endl;
+    std::cerr << "  --clip-on-cpu                      Keep CLIP on CPU (default: false)" << std::endl;
 }
 
 CommandLineArgs parse_args(int argc, char* argv[]) {
@@ -171,6 +175,10 @@ CommandLineArgs parse_args(int argc, char* argv[]) {
             args.offload_to_cpu = true;
         } else if (arg == "--diffusion-fa") {
             args.diffusion_fa = true;
+        } else if (arg == "--control-net-cpu") {
+            args.control_net_cpu = true;
+        } else if (arg == "--clip-on-cpu") {
+            args.clip_on_cpu = true;
         } else if (arg == "--help" || arg == "-h") {
             print_usage(argv[0]);
             exit(0);
@@ -249,6 +257,8 @@ int main(int argc, char* argv[]) {
         server_params.vae_tiling = args.vae_tiling;
         server_params.offload_to_cpu = args.offload_to_cpu;
         server_params.diffusion_fa = args.diffusion_fa;
+        server_params.control_net_cpu = args.control_net_cpu;
+        server_params.clip_on_cpu = args.clip_on_cpu;
 
         // Create and start the server
         g_server = std::make_unique<Server>(server_params);

@@ -85,7 +85,9 @@ ImageGenerator::ImageGenerator(std::shared_ptr<TaskStateManager> task_state_mana
       vae_on_cpu_(server_params.vae_on_cpu),
       vae_tiling_(server_params.vae_tiling),
       offload_to_cpu_(server_params.offload_to_cpu),
-      diffusion_fa_(server_params.diffusion_fa) {
+      diffusion_fa_(server_params.diffusion_fa),
+      control_net_cpu_(server_params.control_net_cpu),
+      clip_on_cpu_(server_params.clip_on_cpu) {
     LOG_INFO("ImageGenerator created");
 }
 
@@ -546,6 +548,8 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     params.keep_vae_on_cpu = vae_on_cpu_;
     params.offload_params_to_cpu = offload_to_cpu_;
     params.diffusion_flash_attn = diffusion_fa_;
+    params.keep_control_net_on_cpu = control_net_cpu_;
+    params.keep_clip_on_cpu = clip_on_cpu_;
 
     if (vae_on_cpu_) {
         LOG_INFO("VAE will be kept on CPU");
@@ -555,6 +559,12 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     }
     if (diffusion_fa_) {
         LOG_INFO("Diffusion flash attention enabled");
+    }
+    if (control_net_cpu_) {
+        LOG_INFO("ControlNet will be kept on CPU");
+    }
+    if (clip_on_cpu_) {
+        LOG_INFO("CLIP will be kept on CPU");
     }
 
     // Create SD context

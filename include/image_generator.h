@@ -115,6 +115,8 @@ class ImageGenerator {
     bool vae_tiling_;
     bool offload_to_cpu_;
     bool diffusion_fa_;
+    bool control_net_cpu_;
+    bool clip_on_cpu_;
 };
 
 #endif  // __IMAGE_GENERATOR_H__
