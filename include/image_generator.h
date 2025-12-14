@@ -113,6 +113,7 @@ class ImageGenerator {
     // SD context parameters from CLI
     bool vae_on_cpu_;
     bool vae_tiling_;
+    std::string vae_tile_size_;
     bool offload_to_cpu_;
     bool diffusion_fa_;
     bool control_net_cpu_;

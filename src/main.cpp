@@ -91,6 +91,7 @@ struct CommandLineArgs {
     std::string text_encoder_dir;
     bool vae_on_cpu = false;
     bool vae_tiling = false;
+    std::string vae_tile_size;
     bool offload_to_cpu = false;
     bool diffusion_fa = false;
     bool control_net_cpu = false;
@@ -117,6 +118,8 @@ void print_usage(const char* program_name) {
     std::cerr << "  --text-encoder-dir <path>          Text encoder models directory" << std::endl;
     std::cerr << "  --vae-on-cpu                       Keep VAE on CPU (default: false)" << std::endl;
     std::cerr << "  --vae-tiling                       Enable VAE tiling (default: false)" << std::endl;
+    std::cerr << "  --vae-tile-size <size>             VAE tile size (in pixels), format [X]x[Y] (default: 256x256)"
+              << std::endl;
     std::cerr << "  --offload-to-cpu                   Offload parameters to CPU (default: false)" << std::endl;
     std::cerr << "  --diffusion-fa                     Enable diffusion flash attention (default: false)" << std::endl;
     std::cerr << "  --control-net-cpu                  Keep ControlNet on CPU (default: false)" << std::endl;
@@ -171,6 +174,8 @@ CommandLineArgs parse_args(int argc, char* argv[]) {
             args.vae_on_cpu = true;
         } else if (arg == "--vae-tiling") {
             args.vae_tiling = true;
+        } else if (arg == "--vae-tile-size" && i + 1 < argc) {
+            args.vae_tile_size = argv[++i];
         } else if (arg == "--offload-to-cpu") {
             args.offload_to_cpu = true;
         } else if (arg == "--diffusion-fa") {
@@ -255,6 +260,7 @@ int main(int argc, char* argv[]) {
         server_params.model_manager = model_manager;
         server_params.vae_on_cpu = args.vae_on_cpu;
         server_params.vae_tiling = args.vae_tiling;
+        server_params.vae_tile_size = args.vae_tile_size;
         server_params.offload_to_cpu = args.offload_to_cpu;
         server_params.diffusion_fa = args.diffusion_fa;
         server_params.control_net_cpu = args.control_net_cpu;

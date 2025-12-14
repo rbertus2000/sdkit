@@ -16,6 +16,7 @@ struct ServerParams {
     std::shared_ptr<ModelManager> model_manager;
     bool vae_on_cpu = false;
     bool vae_tiling = false;
+    std::string vae_tile_size;
     bool offload_to_cpu = false;
     bool diffusion_fa = false;
     bool control_net_cpu = false;

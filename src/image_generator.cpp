@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <stdexcept>
+#include <string>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_STATIC
@@ -84,6 +85,7 @@ ImageGenerator::ImageGenerator(std::shared_ptr<TaskStateManager> task_state_mana
       interrupted_(false),
       vae_on_cpu_(server_params.vae_on_cpu),
       vae_tiling_(server_params.vae_tiling),
+      vae_tile_size_(server_params.vae_tile_size),
       offload_to_cpu_(server_params.offload_to_cpu),
       diffusion_fa_(server_params.diffusion_fa),
       control_net_cpu_(server_params.control_net_cpu),
@@ -202,12 +204,33 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     // VAE tiling (if enabled via CLI)
     if (vae_tiling_) {
         gen_params.vae_tiling_params.enabled = true;
-        gen_params.vae_tiling_params.tile_size_x = 512;  // Default tile size
-        gen_params.vae_tiling_params.tile_size_y = 512;
+
+        // Parse tile size
+        int tile_size_x = 256;
+        int tile_size_y = 256;
+        if (!vae_tile_size_.empty()) {
+            size_t x_pos = vae_tile_size_.find('x');
+            try {
+                if (x_pos != std::string::npos) {
+                    std::string tile_x_str = vae_tile_size_.substr(0, x_pos);
+                    std::string tile_y_str = vae_tile_size_.substr(x_pos + 1);
+                    tile_size_x = std::stoi(tile_x_str);
+                    tile_size_y = std::stoi(tile_y_str);
+                } else {
+                    tile_size_x = tile_size_y = std::stoi(vae_tile_size_);
+                }
+            } catch (const std::exception& e) {
+                LOG_WARNING("Invalid VAE tile size '%s', using default 256x256", vae_tile_size_.c_str());
+                tile_size_x = tile_size_y = 256;
+            }
+        }
+
+        gen_params.vae_tiling_params.tile_size_x = tile_size_x;
+        gen_params.vae_tiling_params.tile_size_y = tile_size_y;
         gen_params.vae_tiling_params.target_overlap = 0.5f;
         gen_params.vae_tiling_params.rel_size_x = 1.0f;
         gen_params.vae_tiling_params.rel_size_y = 1.0f;
-        LOG_INFO("VAE tiling enabled with tile size 512x512");
+        LOG_INFO("VAE tiling enabled with tile size %dx%d", tile_size_x, tile_size_y);
     }
 
     // Generate images
