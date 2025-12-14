@@ -205,7 +205,7 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     if (vae_tiling_) {
         gen_params.vae_tiling_params.enabled = true;
 
-        // Parse tile size
+        // Parse tile size (in pixel space, will convert to latent space)
         int tile_size_x = 256;
         int tile_size_y = 256;
         if (!vae_tile_size_.empty()) {
@@ -225,12 +225,17 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
             }
         }
 
-        gen_params.vae_tiling_params.tile_size_x = tile_size_x;
-        gen_params.vae_tiling_params.tile_size_y = tile_size_y;
+        // Convert from pixel space to latent space (VAE downscaling factor is 8)
+        int latent_tile_x = tile_size_x / 8;
+        int latent_tile_y = tile_size_y / 8;
+
+        gen_params.vae_tiling_params.tile_size_x = latent_tile_x;
+        gen_params.vae_tiling_params.tile_size_y = latent_tile_y;
         gen_params.vae_tiling_params.target_overlap = 0.5f;
-        gen_params.vae_tiling_params.rel_size_x = 1.0f;
-        gen_params.vae_tiling_params.rel_size_y = 1.0f;
-        LOG_INFO("VAE tiling enabled with tile size %dx%d", tile_size_x, tile_size_y);
+        gen_params.vae_tiling_params.rel_size_x = 0.0f;
+        gen_params.vae_tiling_params.rel_size_y = 0.0f;
+        LOG_INFO("VAE tiling enabled with tile size %dx%d pixels (%dx%d latent)", tile_size_x, tile_size_y,
+                 latent_tile_x, latent_tile_y);
     }
 
     // Generate images
