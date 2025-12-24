@@ -1,3 +1,4 @@
 [submodule "stable-diffusion.cpp"]
 	path = stable-diffusion.cpp
 	url = https://github.com/rbertus2000/stable-diffusion.cpp.git
+	branch = mps-fix
