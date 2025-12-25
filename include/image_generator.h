@@ -40,6 +40,12 @@ struct ImageGenerationParams {
     float control_strength = 1.0f;
     std::string controlnet_model;
 
+    // Lora settings
+    sd_lora_t lora;
+    float lora_strength = 1.0f;
+    bool is_high_noise = false;
+    std::string lora_path;
+
     // Other options
     int clip_skip = -1;
 };

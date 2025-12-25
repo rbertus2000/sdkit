@@ -14,6 +14,7 @@
 #include "logging.h"
 #include "model_detection.h"
 #include "server.h"
+#include "../stable-diffusion.cpp/common.hpp"
 
 // Global callback data structure
 struct CallbackData {
@@ -175,6 +176,12 @@ std::vector<std::string> ImageGenerator::generateInternal(const ImageGenerationP
     gen_params.height = params.height;
     gen_params.batch_count = params.batch_count;
     gen_params.seed = params.seed < 0 ? static_cast<int64_t>(time(nullptr)) : params.seed;
+    if (!params.lora_path.empty()) {
+    sd_lora_t lora = {params.is_high_noise, params.lora_strength, params.lora_path.c_str()};
+    
+        gen_params.loras = &lora;
+    }
+    
 
     // Sample parameters
     gen_params.sample_params.sample_method = params.sampler;
