@@ -543,7 +543,7 @@ bool ImageGenerator::ensureModelLoaded(const std::string& controlnet_model) {
     params.taesd_path = nullptr;
     params.control_net_path = controlnet_path_str.empty() ? nullptr : controlnet_path_str.c_str();
     params.lora_model_dir = lora_dir_str.empty() ? nullptr : lora_dir_str.c_str();
-    params.embedding_dir = nullptr;
+    //params.embedding_dir = nullptr;
     params.vae_decode_only = false;  // We need encoding for img2img
 
     // Log what we're loading
